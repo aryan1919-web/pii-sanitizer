@@ -1,0 +1,115 @@
+import os
+import uuid
+from fastapi import APIRouter, Depends, UploadFile, File as FastAPIFile, HTTPException, Query
+from fastapi.responses import Response
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models import User, File, ActionType, Role
+from app.schemas import FileOut
+from app.auth import get_current_user, require_admin, log_action
+from app.encryption import encrypt_bytes, decrypt_bytes
+from app.parsers import process_file, get_extension
+from app.config import settings
+
+router = APIRouter(prefix="/files", tags=["Files"])
+
+MIME_MAP = {
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".sql": "text/plain",
+    ".csv": "text/csv",
+    ".json": "application/json",
+    ".txt": "text/plain",
+    ".png": "text/plain",
+    ".jpg": "text/plain",
+    ".jpeg": "text/plain",
+}
+
+
+@router.post("/upload", response_model=FileOut, status_code=201)
+async def upload(
+    file: UploadFile = FastAPIFile(...),
+    mode: str = Query("redact", regex="^(redact|mask|tokenize)$"),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    raw = await file.read()
+    encrypted = encrypt_bytes(raw)
+    file_id = str(uuid.uuid4())
+    ext = get_extension(file.filename)
+    enc_path = os.path.join(settings.UPLOAD_DIR, f"{file_id}{ext}.enc")
+    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    with open(enc_path, "wb") as f:
+        f.write(encrypted)
+
+    log_action(db, admin.id, ActionType.UPLOAD, target_file=file.filename)
+
+    sanitized_data, pii_count = process_file(raw, file.filename, mode)
+    san_path = os.path.join(settings.SANITIZED_DIR, f"{file_id}{ext}")
+    os.makedirs(settings.SANITIZED_DIR, exist_ok=True)
+    with open(san_path, "wb") as f:
+        f.write(sanitized_data)
+
+    log_action(db, admin.id, ActionType.PII_DETECTION, target_file=file.filename, details=f"Detected {pii_count} PII entities, mode={mode}")
+
+    db_file = File(
+        id=file_id,
+        original_filename=file.filename,
+        encrypted_path=enc_path,
+        sanitized_path=san_path,
+        upload_by=admin.id,
+        mode=mode,
+        pii_count=pii_count,
+    )
+    db.add(db_file)
+    db.commit()
+    db.refresh(db_file)
+    return db_file
+
+
+@router.get("/", response_model=list[FileOut])
+def list_files(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return db.query(File).order_by(File.created_at.desc()).all()
+
+
+@router.get("/{file_id}/download")
+def download_sanitized(file_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    rec = db.query(File).filter(File.id == file_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="File not found")
+    if not rec.sanitized_path or not os.path.exists(rec.sanitized_path):
+        raise HTTPException(status_code=404, detail="Sanitized file not available")
+    with open(rec.sanitized_path, "rb") as f:
+        data = f.read()
+    ext = get_extension(rec.original_filename)
+    log_action(db, user.id, ActionType.DOWNLOAD, target_file=rec.original_filename)
+    return Response(content=data, media_type=MIME_MAP.get(ext, "application/octet-stream"),
+                    headers={"Content-Disposition": f'attachment; filename="sanitized_{rec.original_filename}"'})
+
+
+@router.get("/{file_id}/raw")
+def download_raw(file_id: str, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    rec = db.query(File).filter(File.id == file_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="File not found")
+    if not os.path.exists(rec.encrypted_path):
+        raise HTTPException(status_code=404, detail="Raw file not available")
+    with open(rec.encrypted_path, "rb") as f:
+        encrypted = f.read()
+    data = decrypt_bytes(encrypted)
+    ext = get_extension(rec.original_filename)
+    log_action(db, admin.id, ActionType.VIEW, target_file=rec.original_filename)
+    return Response(content=data, media_type=MIME_MAP.get(ext, "application/octet-stream"),
+                    headers={"Content-Disposition": f'attachment; filename="{rec.original_filename}"'})
+
+
+@router.delete("/{file_id}", status_code=204)
+def delete_file(file_id: str, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    rec = db.query(File).filter(File.id == file_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="File not found")
+    for path in [rec.encrypted_path, rec.sanitized_path]:
+        if path and os.path.exists(path):
+            os.remove(path)
+    db.delete(rec)
+    db.commit()

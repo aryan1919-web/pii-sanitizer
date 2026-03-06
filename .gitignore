@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.db
+uploads/
+app/deberta_pii_model/
+venv/
+.env
