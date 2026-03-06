@@ -18,6 +18,8 @@ class ActionType(str, enum.Enum):
     PII_DETECTION = "pii_detection"
     USER_CREATED = "user_created"
     VIEW = "view"
+    FILE_REJECTED = "file_rejected"
+    FILE_TAMPERED = "file_tampered"
 
 
 class User(Base):
@@ -44,6 +46,8 @@ class File(Base):
     upload_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
     mode: Mapped[str] = mapped_column(String(20), default="redact")
     pii_count: Mapped[int] = mapped_column(default=0)
+    original_hash: Mapped[str] = mapped_column(String(64), nullable=True)
+    sanitized_hash: Mapped[str] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     owner: Mapped["User"] = relationship(back_populates="files")

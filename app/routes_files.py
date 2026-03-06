@@ -1,5 +1,6 @@
 import os
 import uuid
+import hashlib
 from fastapi import APIRouter, Depends, UploadFile, File as FastAPIFile, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -9,6 +10,7 @@ from app.schemas import FileOut
 from app.auth import get_current_user, require_admin, log_action
 from app.encryption import encrypt_bytes, decrypt_bytes
 from app.parsers import process_file, get_extension
+from app.security import scan_file
 from app.config import settings
 
 router = APIRouter(prefix="/files", tags=["Files"])
@@ -34,6 +36,14 @@ async def upload(
     admin: User = Depends(require_admin),
 ):
     raw = await file.read()
+    orig_hash = hashlib.sha256(raw).hexdigest()
+
+    # Security scan — reject malicious files before processing
+    is_safe, reject_reason = scan_file(file.filename, raw)
+    if not is_safe:
+        log_action(db, admin.id, ActionType.FILE_REJECTED, target_file=file.filename, details=reject_reason)
+        raise HTTPException(status_code=400, detail=f"File rejected: {reject_reason}")
+
     encrypted = encrypt_bytes(raw)
     file_id = str(uuid.uuid4())
     ext = get_extension(file.filename)
@@ -45,6 +55,7 @@ async def upload(
     log_action(db, admin.id, ActionType.UPLOAD, target_file=file.filename)
 
     sanitized_data, pii_count = process_file(raw, file.filename, mode)
+    san_hash = hashlib.sha256(sanitized_data).hexdigest()
     san_path = os.path.join(settings.SANITIZED_DIR, f"{file_id}{ext}")
     os.makedirs(settings.SANITIZED_DIR, exist_ok=True)
     with open(san_path, "wb") as f:
@@ -60,6 +71,8 @@ async def upload(
         upload_by=admin.id,
         mode=mode,
         pii_count=pii_count,
+        original_hash=orig_hash,
+        sanitized_hash=san_hash,
     )
     db.add(db_file)
     db.commit()
@@ -81,6 +94,13 @@ def download_sanitized(file_id: str, db: Session = Depends(get_db), user: User =
         raise HTTPException(status_code=404, detail="Sanitized file not available")
     with open(rec.sanitized_path, "rb") as f:
         data = f.read()
+    # Integrity check
+    if rec.sanitized_hash:
+        actual = hashlib.sha256(data).hexdigest()
+        if actual != rec.sanitized_hash:
+            log_action(db, user.id, ActionType.FILE_TAMPERED, target_file=rec.original_filename,
+                       details=f"Sanitized file tampered. Expected: {rec.sanitized_hash}, Actual: {actual}")
+            raise HTTPException(status_code=409, detail="File integrity check failed — sanitized file has been tampered with")
     ext = get_extension(rec.original_filename)
     log_action(db, user.id, ActionType.DOWNLOAD, target_file=rec.original_filename)
     return Response(content=data, media_type=MIME_MAP.get(ext, "application/octet-stream"),
@@ -97,10 +117,46 @@ def download_raw(file_id: str, db: Session = Depends(get_db), admin: User = Depe
     with open(rec.encrypted_path, "rb") as f:
         encrypted = f.read()
     data = decrypt_bytes(encrypted)
+    # Integrity check
+    if rec.original_hash:
+        actual = hashlib.sha256(data).hexdigest()
+        if actual != rec.original_hash:
+            log_action(db, admin.id, ActionType.FILE_TAMPERED, target_file=rec.original_filename,
+                       details=f"Original file tampered. Expected: {rec.original_hash}, Actual: {actual}")
+            raise HTTPException(status_code=409, detail="File integrity check failed — original file has been tampered with")
     ext = get_extension(rec.original_filename)
     log_action(db, admin.id, ActionType.VIEW, target_file=rec.original_filename)
     return Response(content=data, media_type=MIME_MAP.get(ext, "application/octet-stream"),
                     headers={"Content-Disposition": f'attachment; filename="{rec.original_filename}"'})
+
+
+@router.get("/{file_id}/verify")
+def verify_file(file_id: str, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+    rec = db.query(File).filter(File.id == file_id).first()
+    if not rec:
+        raise HTTPException(status_code=404, detail="File not found")
+    result = {"file_id": file_id, "filename": rec.original_filename, "original": None, "sanitized": None}
+    # Check sanitized file
+    if rec.sanitized_path and os.path.exists(rec.sanitized_path):
+        with open(rec.sanitized_path, "rb") as f:
+            data = f.read()
+        actual = hashlib.sha256(data).hexdigest()
+        result["sanitized"] = "intact" if actual == rec.sanitized_hash else "tampered"
+    else:
+        result["sanitized"] = "missing"
+    # Check original (encrypted) file
+    if rec.encrypted_path and os.path.exists(rec.encrypted_path):
+        with open(rec.encrypted_path, "rb") as f:
+            encrypted = f.read()
+        data = decrypt_bytes(encrypted)
+        actual = hashlib.sha256(data).hexdigest()
+        result["original"] = "intact" if actual == rec.original_hash else "tampered"
+    else:
+        result["original"] = "missing"
+    if result["original"] == "tampered" or result["sanitized"] == "tampered":
+        log_action(db, admin.id, ActionType.FILE_TAMPERED, target_file=rec.original_filename,
+                   details=f"Integrity check: original={result['original']}, sanitized={result['sanitized']}")
+    return result
 
 
 @router.delete("/{file_id}", status_code=204)

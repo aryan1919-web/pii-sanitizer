@@ -283,6 +283,12 @@ tr:hover td{background:var(--bg)}
 
 .loading{opacity:.5;pointer-events:none}
 #upload-progress{margin-top:16px;text-align:center;color:var(--accent);font-weight:500}
+.loader-step{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}
+.spinner{width:20px;height:20px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loader-msg{transition:opacity .4s ease}
+.loader-bar{width:45%;margin:8px auto 0;background:var(--border);border-radius:6px;overflow:hidden;height:6px;position:relative}
+.loader-bar-fill{height:6px;border-radius:6px;position:absolute;top:0;left:0}
 </style>
 </head>
 <body>
@@ -716,7 +722,10 @@ Phone: [REDACTED]</div>
      <span id="file-name">No file selected</span>
      <button class="btn btn-primary" onclick="doUpload()" id="btn-upload" disabled>Upload &amp; Process</button>
     </div>
-    <div id="upload-progress" class="hidden">&#9203; Processing your file... please wait</div>
+    <div id="upload-progress" style="display:none">
+     <div class="loader-step"><span class="spinner"></span><span id="loader-msg">Validating file type and extension...</span></div>
+     <div class="loader-bar"><div class="loader-bar-fill" id="loader-bar-fill" style="width:0;background:#e8734a;height:6px"></div></div>
+    </div>
    </div>
   </div>
 
@@ -889,8 +898,9 @@ function renderFiles(list){
  list.forEach(f=>{
   const raw=isAdmin?`<button class="btn btn-outline btn-sm" onclick="downloadRaw('${f.id}','${esc(f.original_filename)}')">Raw</button>`:'';
   const del=isAdmin?`<button class="btn btn-danger btn-sm" onclick="deleteFile('${f.id}')">Delete</button>`:'';
+  const verify=`<button class="btn btn-sm" id="verify-${f.id}" style="background:#6c757d;color:#fff;border:none" onclick="verifyFile('${f.id}')">&#128737; Verify</button>`;
   tb.innerHTML+=`<tr><td>${esc(f.original_filename)}</td><td><span class="badge badge-${f.mode}">${f.mode}</span></td><td>${f.pii_count}</td><td>${formatDate(f.created_at)}</td>
-  <td style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="downloadSan('${f.id}','${esc(f.original_filename)}')">Download</button>${raw}${del}</td></tr>`;
+  <td style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="downloadSan('${f.id}','${esc(f.original_filename)}')">Download</button>${raw}${verify}${del}</td></tr>`;
  });
 }
 
@@ -911,6 +921,18 @@ function downloadBlob(path,name){
  }).catch(e=>toast(e.message,'error'));
 }
 
+async function verifyFile(id){
+ const btn=document.getElementById('verify-'+id);
+ btn.disabled=true;btn.textContent='Checking...';
+ try{
+  const res=await api(`/files/${id}/verify`);
+  const ok=res.original==='intact'&&res.sanitized==='intact';
+  btn.style.background=ok?'#28a745':'#dc3545';
+  btn.innerHTML=ok?'&#10003; Intact':'&#9888; Tampered';
+  toast(ok?'File integrity verified — both files intact':'WARNING: File integrity compromised!',ok?'success':'error');
+ }catch(e){btn.style.background='#dc3545';btn.textContent='Error';toast(e.message,'error');}
+}
+
 async function deleteFile(id){
  if(!confirm('Delete this file permanently?'))return;
  try{await api(`/files/${id}`,{method:'DELETE'});toast('File deleted');loadFiles()}catch(e){toast(e.message,'error')}
@@ -920,10 +942,48 @@ let selectedFile=null;
 function fileSelected(inp){selectedFile=inp.files[0];document.getElementById('file-name').textContent=selectedFile?selectedFile.name:'No file selected';document.getElementById('btn-upload').disabled=!selectedFile}
 function handleDrop(e){e.preventDefault();e.currentTarget.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f){selectedFile=f;document.getElementById('file-name').textContent=f.name;document.getElementById('btn-upload').disabled=false}}
 
+const LOADER_MESSAGES=[
+ 'Validating file type and extension...',
+ 'Scanning for malicious content...',
+ 'Encrypting original file with AES-256...',
+ 'Parsing document content...',
+ 'Running PII detection \u2014 Pass 1: Regex & NER patterns...',
+ 'Running PII detection \u2014 Pass 2: Keyword-context scan...',
+ 'Running PII detection \u2014 Pass 3: DeBERTa-v3 deep learning...',
+ 'Applying sanitization mode...',
+ 'Computing SHA-256 integrity hashes...',
+ 'Saving results & generating audit log...'
+];
+let loaderInterval=null,loaderStep=0;
+function startLoader(){
+ const prog=document.getElementById('upload-progress');
+ const bar=document.getElementById('loader-bar-fill');
+ const msg=document.getElementById('loader-msg');
+ prog.style.display='flex';prog.style.flexDirection='column';prog.style.alignItems='center';
+ bar.style.transition='none';bar.style.width='0';void bar.offsetWidth;
+ bar.style.transition='width 0.5s ease';
+ loaderStep=0;msg.textContent=LOADER_MESSAGES[0];msg.style.opacity='1';
+ setTimeout(()=>{bar.style.width='10%'},50);
+ loaderInterval=setInterval(()=>{
+  loaderStep++;
+  if(loaderStep<LOADER_MESSAGES.length){
+   msg.style.opacity='0';
+   setTimeout(()=>{msg.textContent=LOADER_MESSAGES[loaderStep];msg.style.opacity='1';},400);
+   bar.style.width=Math.min(10+loaderStep*9,90)+'%';
+  }
+ },2500);
+}
+function stopLoader(){
+ clearInterval(loaderInterval);
+ const bar=document.getElementById('loader-bar-fill');
+ bar.style.width='100%';
+ setTimeout(()=>{document.getElementById('upload-progress').style.display='none';bar.style.transition='none';bar.style.width='0';},600);
+}
+
 async function doUpload(){
  if(!selectedFile)return;
  const fd=new FormData();fd.append('file',selectedFile);
- document.getElementById('upload-progress').classList.remove('hidden');
+ startLoader();
  document.getElementById('btn-upload').disabled=true;
  try{
   const r=await fetch(API+`/files/upload?mode=${selectedMode}`,{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
@@ -932,7 +992,7 @@ async function doUpload(){
   toast(`Processed! Found ${data.pii_count} PII entities`);
   selectedFile=null;document.getElementById('file-input').value='';document.getElementById('file-name').textContent='No file selected';
  }catch(e){toast(e.message,'error')}
- document.getElementById('upload-progress').classList.add('hidden');
+ stopLoader();
  document.getElementById('btn-upload').disabled=true;
 }
 
