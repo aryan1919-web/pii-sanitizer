@@ -3,176 +3,800 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PII Sanitizer</title>
+<title>PII Sanitizer — AI-Powered Data Protection</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0f172a;--surface:#1e293b;--card:#334155;--accent:#3b82f6;--accent2:#22d3ee;--danger:#ef4444;--success:#22c55e;--text:#f1f5f9;--muted:#94a3b8;--border:#475569}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
-a{color:var(--accent2);text-decoration:none}
-button{cursor:pointer;border:none;border-radius:8px;padding:10px 20px;font-size:.9rem;font-weight:600;transition:.2s}
-input,select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:.9rem;width:100%}
-input:focus,select:focus{outline:none;border-color:var(--accent)}
-.btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:#2563eb}
-.btn-danger{background:var(--danger);color:#fff}
-.btn-danger:hover{background:#dc2626}
-.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
-.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
-.btn-sm{padding:6px 14px;font-size:.8rem}
+:root{
+  --bg:#FAF8F5;--bg-alt:#F3EDE7;--surface:#FFFFFF;
+  --text:#1A1A1A;--text-muted:#6B6B6B;--text-light:#9A9A9A;
+  --accent:#E8612D;--accent-hover:#D4541F;--accent-light:#FFF0EB;
+  --secondary:#7C8B6F;--tertiary:#8B6F8B;
+  --border:#E5E0DA;--border-hover:#C5BFB8;
+  --shadow:rgba(0,0,0,0.06);--shadow-hover:rgba(0,0,0,0.12);
+  --success:#5A8F5A;--danger:#C44B4B;--warning:#C49B4B;
+  --nav-bg:rgba(250,248,245,0.92);
+  --radius:16px;--radius-sm:8px;--radius-lg:24px;
+  --font-heading:'Playfair Display',Georgia,serif;
+  --font-body:'Inter','Segoe UI',system-ui,sans-serif;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none;transition:color .2s}
+a:hover{color:var(--accent-hover)}
+button{cursor:pointer;border:none;font-family:var(--font-body);transition:all .3s ease}
+input,select,textarea{font-family:var(--font-body);font-size:.95rem}
+.hidden{display:none!important}
 
-.layout{display:flex;min-height:100vh}
-.sidebar{width:240px;background:var(--surface);padding:20px 0;display:flex;flex-direction:column;border-right:1px solid var(--border)}
-.sidebar .logo{padding:0 20px 24px;font-size:1.3rem;font-weight:800;color:var(--accent2);display:flex;align-items:center;gap:8px}
-.sidebar .logo svg{width:28px;height:28px}
-.sidebar nav a{display:flex;align-items:center;gap:10px;padding:12px 20px;color:var(--muted);font-size:.9rem;transition:.2s;border-left:3px solid transparent}
-.sidebar nav a:hover,.sidebar nav a.active{color:var(--text);background:rgba(59,130,246,.08);border-left-color:var(--accent)}
-.sidebar .user-info{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border);font-size:.8rem;color:var(--muted)}
-.sidebar .user-info strong{color:var(--text);display:block;margin-bottom:2px}
+/* ─── BUTTONS ─── */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 28px;border-radius:40px;font-size:.95rem;font-weight:600;transition:all .3s ease}
+.btn-primary{background:var(--accent);color:#fff;border:2px solid var(--accent)}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);transform:translateY(-2px);box-shadow:0 8px 24px rgba(232,97,45,.25)}
+.btn-outline{background:transparent;color:var(--text);border:2px solid var(--border)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
+.btn-sm{padding:8px 20px;font-size:.85rem}
+.btn-danger{background:var(--danger);color:#fff;border:2px solid var(--danger)}
+.btn-danger:hover{background:#a33;border-color:#a33}
+.btn-ghost{background:transparent;color:var(--text-muted);border:none;padding:8px 16px}
+.btn-ghost:hover{color:var(--accent)}
 
-.main{flex:1;display:flex;flex-direction:column}
-.topbar{height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px}
-.topbar h2{font-size:1.1rem;font-weight:600}
-.content{flex:1;padding:28px;overflow-y:auto}
+/* ─── LANDING NAV ─── */
+.nav{position:fixed;top:0;left:0;right:0;z-index:1000;padding:0 40px;height:70px;display:flex;align-items:center;justify-content:space-between;transition:all .3s ease;background:transparent}
+.nav.scrolled{background:var(--nav-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:0 1px 0 var(--border)}
+.nav-logo{font-family:var(--font-heading);font-size:1.35rem;font-weight:800;color:var(--text);display:flex;align-items:center;gap:10px;letter-spacing:.04em}
+.nav-logo .shield{width:32px;height:32px;color:var(--accent)}
+.nav-logo span{letter-spacing:.12em;text-transform:uppercase;font-size:1.1rem}
+.nav-links{display:flex;align-items:center;gap:32px}
+.nav-links a{color:var(--text-muted);font-size:.9rem;font-weight:500;position:relative;padding:4px 0}
+.nav-links a::after{content:'';position:absolute;bottom:-2px;left:0;width:0;height:2px;background:var(--accent);transition:width .3s ease}
+.nav-links a:hover{color:var(--text)}
+.nav-links a:hover::after{width:100%}
+.nav-actions{display:flex;align-items:center;gap:16px}
+.nav-login-link{color:var(--text-muted);font-weight:500;font-size:.9rem}
+.nav-login-link:hover{color:var(--accent)}
+.hamburger{display:none;flex-direction:column;gap:5px;background:none;border:none;padding:8px;cursor:pointer}
+.hamburger span{display:block;width:24px;height:2px;background:var(--text);transition:all .3s}
+.mobile-menu{display:none;position:fixed;top:70px;left:0;right:0;background:var(--surface);border-bottom:1px solid var(--border);padding:20px 40px;flex-direction:column;gap:16px;z-index:999}
+.mobile-menu.open{display:flex}
+@media(max-width:768px){
+  .nav-links,.nav-actions{display:none}
+  .hamburger{display:flex}
+  .nav{padding:0 20px}
+}
 
-.login-wrapper{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)}
-.login-card{background:var(--surface);padding:40px;border-radius:16px;width:400px;max-width:90vw;border:1px solid var(--border)}
-.login-card h1{text-align:center;margin-bottom:8px;color:var(--accent2)}
-.login-card p{text-align:center;color:var(--muted);margin-bottom:28px;font-size:.9rem}
-.form-group{margin-bottom:16px}
-.form-group label{display:block;margin-bottom:6px;font-size:.85rem;color:var(--muted)}
-.login-card button{width:100%;margin-top:8px}
+/* ─── SECTIONS ─── */
+.section{padding:100px 40px;max-width:1240px;margin:0 auto}
+.section-full{padding:100px 40px}
+.section-title{font-family:var(--font-heading);font-size:2.4rem;font-weight:700;margin-bottom:16px;color:var(--text);line-height:1.2}
+.section-label{font-size:.8rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section-label .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block}
+.section-desc{font-size:1.05rem;color:var(--text-muted);max-width:560px;line-height:1.7}
 
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
-.stat-card .value{font-size:1.8rem;font-weight:700}
-.stat-card .label{font-size:.8rem;color:var(--muted);margin-top:4px}
+/* reveal */
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .7s ease,transform .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
 
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
-.card h3{margin-bottom:16px;font-size:1rem}
+/* ─── HERO ─── */
+.hero{min-height:100vh;display:flex;align-items:center;padding-top:70px}
+.hero-inner{max-width:1240px;margin:0 auto;padding:0 40px;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;width:100%}
+.hero-text h1{font-family:var(--font-heading);font-size:4rem;font-weight:800;line-height:1.1;margin-bottom:24px}
+.hero-text h1 .accent{color:var(--accent)}
+.hero-text h1 .spaced{letter-spacing:.14em;text-transform:uppercase;font-size:3.4rem;display:block}
+.hero-text p{font-size:1.15rem;color:var(--text-muted);line-height:1.7;margin-bottom:36px;max-width:480px}
+.hero-buttons{display:flex;gap:16px;flex-wrap:wrap}
+.hero-visual{position:relative;display:flex;justify-content:center;align-items:center}
+.hero-graphic{width:100%;max-width:460px;aspect-ratio:1;background:linear-gradient(135deg,var(--accent-light) 0%,var(--bg-alt) 100%);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.hero-graphic .shield-big{width:140px;height:140px;color:var(--accent);opacity:.85}
+.hero-float{position:absolute;background:var(--surface);border-radius:var(--radius);padding:14px 20px;box-shadow:0 8px 32px var(--shadow);font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:8px;animation:float 4s ease-in-out infinite}
+.hero-float.f1{top:12%;left:-10%;animation-delay:0s}
+.hero-float.f2{bottom:18%;right:-8%;animation-delay:1s}
+.hero-float.f3{top:55%;left:-18%;animation-delay:2s}
+.hero-float .fi{width:20px;height:20px;color:var(--accent)}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@media(max-width:900px){
+  .hero-inner{grid-template-columns:1fr;text-align:center}
+  .hero-text h1{font-size:2.8rem}
+  .hero-text h1 .spaced{font-size:2.2rem}
+  .hero-text p{margin-left:auto;margin-right:auto}
+  .hero-buttons{justify-content:center}
+  .hero-visual{margin-top:40px}
+}
 
-.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;transition:.2s;cursor:pointer}
-.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(59,130,246,.05)}
-.upload-zone p{color:var(--muted);margin-top:8px;font-size:.9rem}
-.upload-controls{display:flex;gap:12px;align-items:center;margin-top:16px;justify-content:center;flex-wrap:wrap}
+/* ─── STATS BANNER ─── */
+.stats-banner{background:var(--text);padding:48px 40px}
+.stats-inner{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:32px;text-align:center}
+.stat-item .stat-value{font-family:var(--font-heading);font-size:2.2rem;font-weight:800;color:#fff;margin-bottom:4px}
+.stat-item .stat-label{font-size:.85rem;color:rgba(255,255,255,.6)}
+@media(max-width:768px){.stats-inner{grid-template-columns:repeat(2,1fr)}}
 
+/* ─── FEATURE CARDS ─── */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px}
+.feature-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:36px 28px;transition:all .3s ease;cursor:default}
+.feature-card:hover{transform:translateY(-4px);box-shadow:0 12px 32px var(--shadow-hover);border-color:var(--border-hover)}
+.feature-card .fc-icon{width:48px;height:48px;background:var(--accent-light);border-radius:12px;display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.feature-card .fc-icon svg{width:24px;height:24px;color:var(--accent)}
+.feature-card h3{font-family:var(--font-heading);font-size:1.15rem;font-weight:700;margin-bottom:10px}
+.feature-card p{font-size:.9rem;color:var(--text-muted);line-height:1.6}
+@media(max-width:900px){.features-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.features-grid{grid-template-columns:1fr}}
+
+/* ─── STEPS ─── */
+.steps-section{background:var(--bg-alt)}
+.steps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;margin-top:48px;position:relative}
+.step-card{text-align:center;position:relative}
+.step-num{width:48px;height:48px;border-radius:50%;background:var(--accent);color:#fff;font-family:var(--font-heading);font-size:1.2rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+.step-card h3{font-family:var(--font-heading);font-size:1.1rem;margin-bottom:8px}
+.step-card p{font-size:.88rem;color:var(--text-muted);line-height:1.5}
+.step-connector{position:absolute;top:24px;left:calc(50% + 32px);width:calc(100% - 64px);height:2px;background:var(--border)}
+.step-card:last-child .step-connector{display:none}
+@media(max-width:768px){.steps-grid{grid-template-columns:repeat(2,1fr)}.step-connector{display:none}}
+@media(max-width:500px){.steps-grid{grid-template-columns:1fr}}
+
+/* ─── FORMATS ─── */
+.formats-row{display:flex;flex-wrap:wrap;gap:16px;margin-top:40px;justify-content:center}
+.format-chip{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 28px;display:flex;flex-direction:column;align-items:center;gap:10px;font-size:.85rem;font-weight:600;min-width:100px;transition:all .3s ease}
+.format-chip:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 24px var(--shadow)}
+.format-chip svg{width:28px;height:28px;color:var(--accent)}
+.format-chip .ext{font-size:.75rem;color:var(--text-muted);font-weight:500}
+.ocr-callout{margin-top:32px;background:var(--accent-light);border-radius:var(--radius);padding:24px 32px;display:flex;align-items:center;gap:16px;max-width:600px;margin-left:auto;margin-right:auto}
+.ocr-callout svg{width:28px;height:28px;color:var(--accent);flex-shrink:0}
+.ocr-callout p{font-size:.9rem;color:var(--text)}
+.ocr-callout strong{color:var(--accent)}
+
+/* ─── SECURITY ─── */
+.security-section{background:var(--bg-alt)}
+.security-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-top:48px}
+.security-points{list-style:none;display:flex;flex-direction:column;gap:18px}
+.security-points li{display:flex;align-items:flex-start;gap:14px;font-size:.95rem;line-height:1.5}
+.security-points li svg{width:22px;height:22px;color:var(--success);flex-shrink:0;margin-top:2px}
+.security-visual{background:var(--surface);border-radius:var(--radius-lg);padding:48px;text-align:center;border:1px solid var(--border)}
+.security-visual .arch-label{font-family:var(--font-heading);font-size:1.1rem;margin-bottom:24px;color:var(--text-muted)}
+.arch-flow{display:flex;flex-direction:column;gap:12px;align-items:center}
+.arch-box{background:var(--accent-light);border:1px solid rgba(232,97,45,.2);border-radius:var(--radius-sm);padding:12px 24px;font-size:.85rem;font-weight:600;color:var(--accent);width:80%}
+.arch-arrow{color:var(--text-light);font-size:1.2rem}
+@media(max-width:768px){.security-grid{grid-template-columns:1fr}}
+
+/* ─── MODES SHOWCASE ─── */
+.modes-tabs{display:flex;gap:4px;background:var(--bg-alt);border-radius:var(--radius);padding:4px;margin-bottom:32px;width:fit-content;margin-left:auto;margin-right:auto}
+.mode-tab{padding:10px 24px;border-radius:12px;font-size:.9rem;font-weight:600;background:transparent;color:var(--text-muted);cursor:pointer;border:none;transition:all .3s}
+.mode-tab.active{background:var(--accent);color:#fff}
+.mode-example{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:36px;max-width:700px;margin:0 auto;text-align:left}
+.mode-example .before,.mode-example .after{padding:16px 20px;border-radius:var(--radius-sm);font-family:'Courier New',monospace;font-size:.9rem;line-height:1.8;white-space:pre-wrap}
+.mode-example .before{background:#fdf6f0;border:1px solid #e8d5c4}
+.mode-example .after{background:#f0fdf0;border:1px solid #c4e8c4}
+.mode-example .label{font-size:.75rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--text-light);margin-bottom:6px}
+.mode-example .arrow-down{text-align:center;padding:12px;color:var(--accent);font-size:1.4rem}
+
+/* ─── CTA ─── */
+.cta-section{background:var(--text);padding:100px 40px;text-align:center;position:relative;overflow:hidden}
+.cta-section h2{font-family:var(--font-heading);font-size:3rem;font-weight:800;color:#fff;margin-bottom:16px}
+.cta-section p{color:rgba(255,255,255,.6);font-size:1.05rem;margin-bottom:36px}
+.cta-section .btn-primary{font-size:1.05rem;padding:16px 40px}
+.cta-decor{position:absolute;opacity:.06}
+.cta-decor.d1{top:-40px;left:10%;width:200px;height:200px;border:3px solid #fff;border-radius:50%}
+.cta-decor.d2{bottom:-60px;right:8%;width:300px;height:300px;border:3px solid #fff;border-radius:50%}
+
+/* ─── FOOTER ─── */
+.footer{background:var(--bg-alt);padding:60px 40px 30px;border-top:1px solid var(--border)}
+.footer-inner{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:40px}
+.footer-brand{font-family:var(--font-heading);font-size:1.2rem;font-weight:800;margin-bottom:12px;letter-spacing:.08em}
+.footer-brand-desc{font-size:.85rem;color:var(--text-muted);line-height:1.6;max-width:280px}
+.footer-col h4{font-size:.8rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--text-light);margin-bottom:16px}
+.footer-col a{display:block;color:var(--text-muted);font-size:.88rem;margin-bottom:10px;transition:color .2s}
+.footer-col a:hover{color:var(--accent)}
+.footer-bottom{max-width:1240px;margin:32px auto 0;padding-top:24px;border-top:1px solid var(--border);font-size:.8rem;color:var(--text-light);text-align:center}
+@media(max-width:768px){.footer-inner{grid-template-columns:1fr 1fr}}
+@media(max-width:500px){.footer-inner{grid-template-columns:1fr}}
+
+/* ─── LOGIN MODAL ─── */
+.login-overlay{position:fixed;inset:0;background:rgba(26,26,26,.4);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:2000}
+.login-card{background:var(--surface);border-radius:var(--radius-lg);padding:48px 44px;width:420px;max-width:92vw;border:1px solid var(--border);position:relative}
+.login-card h1{font-family:var(--font-heading);font-size:2rem;font-weight:700;text-align:center;margin-bottom:4px}
+.login-card .sub{text-align:center;color:var(--text-muted);font-size:.92rem;margin-bottom:32px}
+.login-card .close-btn{position:absolute;top:16px;right:16px;background:none;border:none;font-size:1.4rem;color:var(--text-light);cursor:pointer;padding:4px 8px;line-height:1}
+.login-card .close-btn:hover{color:var(--text)}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;margin-bottom:6px;font-size:.85rem;font-weight:600;color:var(--text-muted)}
+.form-group input{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:.95rem;background:var(--bg);color:var(--text);transition:border-color .2s}
+.form-group input:focus{outline:none;border-color:var(--accent)}
+.login-card .btn-primary{width:100%;justify-content:center;margin-top:8px;padding:14px}
+.login-error{color:var(--danger);font-size:.85rem;text-align:center;margin-top:12px;min-height:20px}
+
+/* ═══════════════ AUTHENTICATED APP ═══════════════ */
+.app-nav{position:fixed;top:0;left:0;right:0;z-index:1000;height:64px;background:var(--nav-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;gap:32px}
+.app-nav .nav-logo{font-size:1.15rem}
+.app-nav-links{display:flex;gap:4px;margin-left:32px}
+.app-nav-links a{padding:8px 16px;border-radius:var(--radius-sm);font-size:.88rem;font-weight:500;color:var(--text-muted);transition:all .2s;cursor:pointer}
+.app-nav-links a:hover{background:var(--bg-alt);color:var(--text)}
+.app-nav-links a.active{background:var(--accent-light);color:var(--accent);font-weight:600}
+.app-nav-links a::after{display:none}
+.app-nav-right{margin-left:auto;display:flex;align-items:center;gap:16px}
+.app-nav-user{font-size:.85rem;color:var(--text-muted);display:flex;align-items:center;gap:8px}
+.app-nav-user .avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem}
+.app-nav-user strong{color:var(--text);font-weight:600}
+.logout-btn{color:var(--danger);font-size:.85rem;font-weight:500;background:none;border:none;cursor:pointer;padding:6px 10px;border-radius:var(--radius-sm)}
+.logout-btn:hover{background:rgba(196,75,75,.08)}
+
+.app-content{padding:88px 32px 40px;max-width:1280px;margin:0 auto}
+
+/* Stat Cards */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-bottom:32px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;transition:all .3s}
+.stat-card:hover{box-shadow:0 8px 24px var(--shadow)}
+.stat-card .sc-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.stat-card .sc-icon.blue{background:#e8f0fe;color:#3b82f6}
+.stat-card .sc-icon.coral{background:var(--accent-light);color:var(--accent)}
+.stat-card .sc-icon.green{background:#e8f5e9;color:var(--success)}
+.stat-card .sc-icon.plum{background:#f3e8f3;color:var(--tertiary)}
+.stat-card .sc-icon svg{width:22px;height:22px}
+.stat-card .sc-value{font-family:var(--font-heading);font-size:2rem;font-weight:700}
+.stat-card .sc-label{font-size:.82rem;color:var(--text-muted);margin-top:2px}
+
+/* Cards & Tables */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:24px}
+.card h3{font-family:var(--font-heading);font-size:1.2rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px}
 table{width:100%;border-collapse:collapse}
-th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--border);font-size:.85rem}
-th{color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px}
-tr:hover td{background:rgba(59,130,246,.04)}
+th,td{text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:.88rem}
+th{color:var(--text-light);font-weight:600;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em}
+tr:hover td{background:var(--bg)}
+.badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-redact{background:var(--accent-light);color:var(--accent)}
+.badge-mask{background:#fff8e1;color:var(--warning)}
+.badge-tokenize{background:#f0f5f0;color:var(--secondary)}
+.badge-admin{background:var(--accent-light);color:var(--accent)}
+.badge-user{background:#f0f5f0;color:var(--secondary)}
 
-.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
-.badge-admin{background:rgba(59,130,246,.15);color:var(--accent)}
-.badge-user{background:rgba(34,211,238,.15);color:var(--accent2)}
-.badge-redact{background:rgba(239,68,68,.15);color:var(--danger)}
-.badge-mask{background:rgba(234,179,8,.15);color:#eab308}
-.badge-tokenize{background:rgba(34,211,238,.15);color:var(--accent2)}
+/* Upload */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:52px 40px;text-align:center;transition:all .3s;cursor:pointer;background:var(--bg)}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:var(--accent-light)}
+.upload-zone svg{width:48px;height:48px;color:var(--text-light);margin-bottom:12px}
+.upload-zone p{color:var(--text-muted);margin-top:6px;font-size:.9rem}
+.upload-zone .formats-hint{font-size:.78rem;color:var(--text-light);margin-top:4px}
 
-.toast{position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:10px;font-size:.9rem;z-index:9999;animation:slideIn .3s ease}
+.mode-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:20px;margin-bottom:20px}
+.mode-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;transition:all .3s}
+.mode-card:hover{border-color:var(--border-hover)}
+.mode-card.selected{border-color:var(--accent);background:var(--accent-light)}
+.mode-card h4{font-family:var(--font-heading);font-size:1rem;margin-bottom:4px}
+.mode-card p{font-size:.78rem;color:var(--text-muted)}
+.upload-controls{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.upload-controls #file-name{font-size:.88rem;color:var(--text-muted)}
+
+.search-bar{margin-bottom:16px}
+.search-bar input{max-width:340px;padding:10px 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text)}
+.search-bar input:focus{outline:none;border-color:var(--accent)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,26,26,.4);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:2000}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;width:440px;max-width:92vw}
+.modal h3{font-family:var(--font-heading);font-size:1.3rem;margin-bottom:20px}
+.modal .form-group select{width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--text);font-size:.95rem}
+.modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:var(--radius-sm);font-size:.9rem;font-weight:500;z-index:9999;animation:toastIn .4s ease}
 .toast-success{background:var(--success);color:#fff}
 .toast-error{background:var(--danger);color:#fff}
-@keyframes slideIn{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes toastIn{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
 
-.hidden{display:none!important}
-.loading{opacity:.6;pointer-events:none}
-.search-bar{margin-bottom:16px}
-.search-bar input{max-width:320px}
-
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:999}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:440px;max-width:90vw}
-.modal h3{margin-bottom:20px}
-.modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.loading{opacity:.5;pointer-events:none}
+#upload-progress{margin-top:16px;text-align:center;color:var(--accent);font-weight:500}
 </style>
 </head>
 <body>
 
-<div id="app-login" class="login-wrapper">
- <div class="login-card">
-  <h1>&#128274; PII Sanitizer</h1>
-  <p>Secure PII Detection & Masking System</p>
-  <div class="form-group"><label>Username</label><input id="login-user" value="admin"></div>
-  <div class="form-group"><label>Password</label><input id="login-pass" type="password" value="admin123"></div>
-  <button class="btn-primary" onclick="doLogin()">Sign In</button>
-  <p id="login-error" style="color:var(--danger);margin-top:12px;font-size:.85rem"></p>
+<!-- ══════════════════════ LANDING PAGE ══════════════════════ -->
+<div id="app-landing">
+
+<!-- NAV -->
+<nav class="nav" id="landing-nav">
+ <div class="nav-logo">
+  <svg class="shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  <span>PII Sanitizer</span>
  </div>
+ <div class="nav-links">
+  <a href="#features">Features</a>
+  <a href="#how-it-works">How It Works</a>
+  <a href="#formats">Formats</a>
+  <a href="#security">Security</a>
+  <a href="#modes">Modes</a>
+ </div>
+ <div class="nav-actions">
+  <a class="nav-login-link" href="#" onclick="openLogin();return false">Login</a>
+  <button class="btn btn-primary btn-sm" onclick="openLogin()">Get Started</button>
+ </div>
+ <button class="hamburger" onclick="toggleMobileMenu()" aria-label="Menu">
+  <span></span><span></span><span></span>
+ </button>
+</nav>
+
+<div class="mobile-menu" id="mobile-menu">
+ <a href="#features" onclick="closeMobileMenu()">Features</a>
+ <a href="#how-it-works" onclick="closeMobileMenu()">How It Works</a>
+ <a href="#formats" onclick="closeMobileMenu()">Formats</a>
+ <a href="#security" onclick="closeMobileMenu()">Security</a>
+ <a href="#modes" onclick="closeMobileMenu()">Modes</a>
+ <a href="#" onclick="openLogin();closeMobileMenu();return false">Login</a>
+ <button class="btn btn-primary btn-sm" onclick="openLogin();closeMobileMenu()">Get Started</button>
 </div>
 
-<div id="app-main" class="layout hidden">
- <aside class="sidebar">
-  <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> PII Sanitizer</div>
-  <nav>
-   <a href="#" class="active" data-page="dashboard" onclick="showPage('dashboard')">&#128202; Dashboard</a>
-   <a href="#" data-page="upload" onclick="showPage('upload')" id="nav-upload">&#128228; Upload Files</a>
-   <a href="#" data-page="files" onclick="showPage('files')">&#128196; Files</a>
-   <a href="#" data-page="users" onclick="showPage('users')" id="nav-users">&#128101; Users</a>
-   <a href="#" data-page="logs" onclick="showPage('logs')" id="nav-logs">&#128220; Audit Logs</a>
-  </nav>
-  <div class="user-info"><strong id="display-user"></strong><span id="display-role"></span><br><a href="#" onclick="doLogout()" style="font-size:.8rem;color:var(--danger)">Logout</a></div>
- </aside>
- <div class="main">
-  <div class="topbar"><h2 id="page-title">Dashboard</h2><span style="font-size:.8rem;color:var(--muted)" id="clock"></span></div>
-  <div class="content">
-
-   <div id="page-dashboard">
-    <div class="stats">
-     <div class="stat-card"><div class="value" id="st-files">0</div><div class="label">Total Files Processed</div></div>
-     <div class="stat-card"><div class="value" id="st-pii">0</div><div class="label">PII Entities Detected</div></div>
-     <div class="stat-card"><div class="value" id="st-users">0</div><div class="label">Registered Users</div></div>
-     <div class="stat-card"><div class="value" id="st-logs">0</div><div class="label">Audit Events</div></div>
-    </div>
-    <div class="card"><h3>Recent Files</h3><table><thead><tr><th>Filename</th><th>Mode</th><th>PII Found</th><th>Date</th></tr></thead><tbody id="dash-files"></tbody></table></div>
+<!-- HERO -->
+<section class="hero">
+ <div class="hero-inner">
+  <div class="hero-text reveal">
+   <h1><span class="spaced">Protect. Detect.</span> <span class="accent">Sanitize.</span></h1>
+   <p>AI-powered PII detection and sanitization for documents, databases, and images. Three-pass engine catches what others miss.</p>
+   <div class="hero-buttons">
+    <button class="btn btn-primary" onclick="openLogin()">Try Now &#8594;</button>
+    <a class="btn btn-outline" href="#how-it-works">Learn More</a>
    </div>
-
-   <div id="page-upload" class="hidden">
-    <div class="card">
-     <h3>Upload & Sanitize File</h3>
-     <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-      <p>Drag & drop file here or click to browse</p>
-      <p style="font-size:.75rem;color:var(--border)">Supported: .docx .pdf .xlsx .sql .csv .json .txt .png .jpg (OCR)</p>
-     </div>
-     <input type="file" id="file-input" class="hidden" accept=".docx,.pdf,.xlsx,.xls,.sql,.csv,.json,.txt,.png,.jpg,.jpeg" onchange="fileSelected(this)">
-     <div class="upload-controls">
-      <span id="file-name" style="color:var(--muted);font-size:.85rem">No file selected</span>
-      <select id="mode-select" style="width:auto">
-       <option value="redact">Redact [REDACTED]</option>
-       <option value="mask">Mask (partial)</option>
-       <option value="tokenize">Tokenize (UUID)</option>
-      </select>
-      <button class="btn-primary" onclick="doUpload()" id="btn-upload" disabled>Upload & Process</button>
-     </div>
-     <div id="upload-progress" class="hidden" style="margin-top:16px;text-align:center;color:var(--accent)">Processing... please wait</div>
-    </div>
+  </div>
+  <div class="hero-visual reveal">
+   <div class="hero-graphic">
+    <svg class="shield-big" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4" stroke-width="2"/></svg>
    </div>
-
-   <div id="page-files" class="hidden">
-    <div class="card">
-     <h3>Processed Files</h3>
-     <div class="search-bar"><input placeholder="Search files..." oninput="filterFiles(this.value)"></div>
-     <table><thead><tr><th>Filename</th><th>Mode</th><th>PII Count</th><th>Date</th><th>Actions</th></tr></thead><tbody id="files-table"></tbody></table>
-    </div>
+   <div class="hero-float f1">
+    <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20"/></svg>
+    Aadhaar &#10003;
    </div>
-
-   <div id="page-users" class="hidden">
-    <div class="card">
-     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="margin:0">User Management</h3><button class="btn-primary btn-sm" onclick="showCreateUser()">+ New User</button></div>
-     <table><thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Created</th></tr></thead><tbody id="users-table"></tbody></table>
-    </div>
+   <div class="hero-float f2">
+    <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+    Phone Masked
    </div>
-
-   <div id="page-logs" class="hidden">
-    <div class="card">
-     <h3>Audit Log</h3>
-     <table><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Target</th><th>Details</th></tr></thead><tbody id="logs-table"></tbody></table>
-    </div>
+   <div class="hero-float f3">
+    <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    AI Engine
    </div>
-
   </div>
  </div>
+</section>
+
+<!-- STATS BANNER -->
+<section class="stats-banner reveal">
+ <div class="stats-inner">
+  <div class="stat-item"><div class="stat-value">16+</div><div class="stat-label">PII Types Detected</div></div>
+  <div class="stat-item"><div class="stat-value">10+</div><div class="stat-label">File Formats Supported</div></div>
+  <div class="stat-item"><div class="stat-value">3-Pass</div><div class="stat-label">AI Detection Engine</div></div>
+  <div class="stat-item"><div class="stat-value">AES</div><div class="stat-label">Encrypted at Rest</div></div>
+ </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features">
+ <div class="reveal">
+  <div class="section-label"><span class="dot"></span> What We Detect</div>
+  <div class="section-title">Comprehensive PII Coverage</div>
+  <div class="section-desc">From government IDs to biometric hashes &#8212; our three-pass AI engine identifies sensitive data across every format.</div>
+ </div>
+ <div class="features-grid">
+  <div class="feature-card reveal">
+   <div class="fc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 8h20M8 12h2M8 16h4"/></svg></div>
+   <h3>Identity Documents</h3>
+   <p>Aadhaar, PAN Card, Passport numbers &#8212; detected via specialized Indian document recognizers.</p>
+  </div>
+  <div class="feature-card reveal">
+   <div class="fc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg></div>
+   <h3>Contact Information</h3>
+   <p>Phone numbers, email addresses, physical addresses &#8212; caught by regex and NER models.</p>
+  </div>
+  <div class="feature-card reveal">
+   <div class="fc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7z"/><circle cx="12" cy="11" r="2"/><path d="M6 17h12"/></svg></div>
+   <h3>Financial Data</h3>
+   <p>Bank accounts, IFSC codes, UPI IDs, credit card numbers &#8212; with contextual validation.</p>
+  </div>
+  <div class="feature-card reveal">
+   <div class="fc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839-1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg></div>
+   <h3>Biometric Hashes</h3>
+   <p>Fingerprint hashes, face templates, device IDs &#8212; pattern-matched with high precision.</p>
+  </div>
+  <div class="feature-card reveal">
+   <div class="fc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/></svg></div>
+   <h3>Personal Details</h3>
+   <p>Names, dates of birth, IP addresses &#8212; identified through spaCy NER and keyword context.</p>
+  </div>
+  <div class="feature-card reveal">
+   <div class="fc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div>
+   <h3>AI Deep Learning</h3>
+   <p>DeBERTa-v3 NER model catches what regex misses &#8212; names, addresses, and context-dependent PII.</p>
+  </div>
+ </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section-full steps-section" id="how-it-works">
+ <div class="section" style="padding-top:0;padding-bottom:0">
+  <div class="reveal">
+   <div class="section-label"><span class="dot"></span> How It Works</div>
+   <div class="section-title">Four Simple Steps</div>
+   <div class="section-desc">From upload to download &#8212; your data is scanned, sanitized, and secured in seconds.</div>
+  </div>
+  <div class="steps-grid">
+   <div class="step-card reveal">
+    <div class="step-num">1</div>
+    <div class="step-connector"></div>
+    <h3>Upload</h3>
+    <p>Drag &amp; drop any supported file &#8212; DOCX, PDF, XLSX, SQL, CSV, JSON, TXT, or images.</p>
+   </div>
+   <div class="step-card reveal">
+    <div class="step-num">2</div>
+    <div class="step-connector"></div>
+    <h3>Detect</h3>
+    <p>Three-pass AI engine scans for PII: Presidio regex, Keyword context, and DeBERTa NER.</p>
+   </div>
+   <div class="step-card reveal">
+    <div class="step-num">3</div>
+    <div class="step-connector"></div>
+    <h3>Sanitize</h3>
+    <p>Choose your mode: Redact removes, Mask partially hides, Tokenize replaces with UUIDs.</p>
+   </div>
+   <div class="step-card reveal">
+    <div class="step-num">4</div>
+    <h3>Download</h3>
+    <p>Get your clean file instantly. Originals stay encrypted at rest with Fernet encryption.</p>
+   </div>
+  </div>
+ </div>
+</section>
+
+<!-- SUPPORTED FORMATS -->
+<section class="section" id="formats" style="text-align:center">
+ <div class="reveal">
+  <div class="section-label" style="justify-content:center"><span class="dot"></span> Supported Formats</div>
+  <div class="section-title" style="margin-left:auto;margin-right:auto">Works With Your Files</div>
+ </div>
+ <div class="formats-row reveal">
+  <div class="format-chip">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 15h6M9 11h2"/></svg>
+   <span>.docx</span><span class="ext">Word</span>
+  </div>
+  <div class="format-chip">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h3"/></svg>
+   <span>.pdf</span><span class="ext">PDF</span>
+  </div>
+  <div class="format-chip">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><rect x="7" y="12" width="10" height="6" rx="1"/></svg>
+   <span>.xlsx</span><span class="ext">Excel</span>
+  </div>
+  <div class="format-chip">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3M21 5v14c0 1.66-4 3-9 3s-9-1.34-9-3V5"/></svg>
+   <span>.sql</span><span class="ext">Database</span>
+  </div>
+  <div class="format-chip">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h2M8 17h2M14 13h2M14 17h2"/></svg>
+   <span>.csv</span><span class="ext">Data</span>
+  </div>
+  <div class="format-chip">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13l2 2-2 2M14 13l-2 2 2 2"/></svg>
+   <span>.json</span><span class="ext">JSON</span>
+  </div>
+  <div class="format-chip">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6M9 9h1"/></svg>
+   <span>.txt</span><span class="ext">Text</span>
+  </div>
+  <div class="format-chip">
+   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+   <span>.png .jpg</span><span class="ext">OCR</span>
+  </div>
+ </div>
+ <div class="ocr-callout reveal" style="margin-top:40px">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+  <p><strong>OCR Support</strong> &#8212; Scans images and scanned PDFs using Tesseract, then detects PII in the extracted text.</p>
+ </div>
+</section>
+
+<!-- SECURITY -->
+<section class="section-full security-section" id="security">
+ <div class="section" style="padding-top:0;padding-bottom:0">
+  <div class="reveal">
+   <div class="section-label"><span class="dot"></span> Security &amp; Architecture</div>
+   <div class="section-title">Built for Privacy</div>
+  </div>
+  <div class="security-grid">
+   <ul class="security-points reveal">
+    <li>
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+     <span><strong>Fernet encryption at rest</strong> &#8212; all uploaded files are encrypted immediately using symmetric AES encryption.</span>
+    </li>
+    <li>
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+     <span><strong>JWT authentication</strong> with bcrypt password hashing &#8212; industry-standard auth.</span>
+    </li>
+    <li>
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+     <span><strong>Role-based access control</strong> &#8212; Admin and User roles with separate permissions.</span>
+    </li>
+    <li>
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+     <span><strong>Complete audit trail</strong> &#8212; every upload, download, login, and PII detection is logged.</span>
+    </li>
+    <li>
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+     <span><strong>Three-pass detection</strong> &#8212; Presidio regex + Keyword context + DeBERTa AI for maximum coverage.</span>
+    </li>
+    <li>
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+     <span><strong>Self-hosted</strong> &#8212; all processing happens server-side. No data leaves your infrastructure.</span>
+    </li>
+   </ul>
+   <div class="security-visual reveal">
+    <div class="arch-label">Detection Pipeline</div>
+    <div class="arch-flow">
+     <div class="arch-box">&#128196; File Upload (Encrypted at Rest)</div>
+     <div class="arch-arrow">&#8595;</div>
+     <div class="arch-box">&#128269; Pass 1: Presidio (Regex + spaCy NER)</div>
+     <div class="arch-arrow">&#8595;</div>
+     <div class="arch-box">&#127991;&#65039; Pass 2: Keyword Context Scanner</div>
+     <div class="arch-arrow">&#8595;</div>
+     <div class="arch-box">&#129504; Pass 3: DeBERTa-v3 Deep Learning</div>
+     <div class="arch-arrow">&#8595;</div>
+     <div class="arch-box">&#9989; Sanitized Output (Redact / Mask / Tokenize)</div>
+    </div>
+   </div>
+  </div>
+ </div>
+</section>
+
+<!-- MODES SHOWCASE -->
+<section class="section" id="modes" style="text-align:center">
+ <div class="reveal">
+  <div class="section-label" style="justify-content:center"><span class="dot"></span> Sanitization Modes</div>
+  <div class="section-title" style="margin-left:auto;margin-right:auto">Three Ways to Protect</div>
+  <p class="section-desc" style="margin:0 auto 40px">Choose the sanitization mode that fits your use case.</p>
+ </div>
+ <div class="reveal">
+  <div class="modes-tabs">
+   <button class="mode-tab active" onclick="showLandingMode('redact',this)">Redact</button>
+   <button class="mode-tab" onclick="showLandingMode('mask',this)">Mask</button>
+   <button class="mode-tab" onclick="showLandingMode('tokenize',this)">Tokenize</button>
+  </div>
+  <div class="mode-example" id="mode-display">
+   <div class="label">Before</div>
+   <div class="before" id="mode-before">Name: Aarav Mehta
+Email: aarav.mehta@example.com
+Aadhaar: 4821 7391 6625
+Phone: +91 9876511234</div>
+   <div class="arrow-down">&#8595;</div>
+   <div class="label">After &#8212; <strong id="mode-name">Redact</strong></div>
+   <div class="after" id="mode-after">Name: [REDACTED]
+Email: [REDACTED]
+Aadhaar: [REDACTED]
+Phone: [REDACTED]</div>
+  </div>
+ </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+ <div class="cta-decor d1"></div>
+ <div class="cta-decor d2"></div>
+ <div class="reveal">
+  <h2>Ready to Protect Your Data?</h2>
+  <p>Free to use. No data stored externally. Self-hosted and secure.</p>
+  <button class="btn btn-primary" onclick="openLogin()">Get Started &#8594;</button>
+ </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+ <div class="footer-inner">
+  <div>
+   <div class="footer-brand">PII Sanitizer</div>
+   <p class="footer-brand-desc">AI-powered PII detection and sanitization platform. Built for privacy, designed for simplicity.</p>
+  </div>
+  <div class="footer-col">
+   <h4>Quick Links</h4>
+   <a href="#features">Features</a>
+   <a href="#how-it-works">How It Works</a>
+   <a href="#formats">Formats</a>
+   <a href="#security">Security</a>
+  </div>
+  <div class="footer-col">
+   <h4>Powered By</h4>
+   <a href="#">FastAPI</a>
+   <a href="#">Presidio</a>
+   <a href="#">DeBERTa-v3</a>
+   <a href="#">spaCy</a>
+   <a href="#">Tesseract OCR</a>
+  </div>
+  <div class="footer-col">
+   <h4>Modes</h4>
+   <a href="#modes">Redact</a>
+   <a href="#modes">Mask</a>
+   <a href="#modes">Tokenize</a>
+  </div>
+ </div>
+ <div class="footer-bottom">&copy; 2025 PII Sanitizer. Built for Hackathon.</div>
+</footer>
+
+</div>
+<!-- END LANDING -->
+
+<!-- ══════════════════════ LOGIN MODAL ══════════════════════ -->
+<div id="login-modal" class="login-overlay hidden">
+ <div class="login-card">
+  <button class="close-btn" onclick="closeLogin()">&#10005;</button>
+  <h1>Welcome Back</h1>
+  <p class="sub">Sign in to your PII Sanitizer account</p>
+  <div class="form-group"><label>Username</label><input id="login-user" value="admin" autocomplete="username"></div>
+  <div class="form-group"><label>Password</label><input id="login-pass" type="password" value="admin123" autocomplete="current-password"></div>
+  <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+  <div class="login-error" id="login-error"></div>
+ </div>
 </div>
 
+<!-- ══════════════════════ AUTHENTICATED APP ══════════════════════ -->
+<div id="app-main" class="hidden">
+
+ <!-- APP NAV -->
+ <nav class="app-nav">
+  <div class="nav-logo">
+   <svg class="shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:26px;height:26px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+   <span>PII Sanitizer</span>
+  </div>
+  <div class="app-nav-links">
+   <a class="active" data-page="dashboard" onclick="showPage('dashboard')">&#128202; Dashboard</a>
+   <a data-page="upload" onclick="showPage('upload')" id="nav-upload">&#128228; Upload</a>
+   <a data-page="files" onclick="showPage('files')">&#128193; Files</a>
+   <a data-page="users" onclick="showPage('users')" id="nav-users">&#128101; Users</a>
+   <a data-page="logs" onclick="showPage('logs')" id="nav-logs">&#128203; Audit Log</a>
+  </div>
+  <div class="app-nav-right">
+   <div class="app-nav-user">
+    <div class="avatar" id="user-avatar">A</div>
+    <div><strong id="display-user"></strong><br><span style="font-size:.75rem" id="display-role"></span></div>
+   </div>
+   <button class="logout-btn" onclick="doLogout()">Logout</button>
+  </div>
+ </nav>
+
+ <div class="app-content">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard">
+   <div class="stats-row">
+    <div class="stat-card">
+     <div class="sc-icon coral"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg></div>
+     <div class="sc-value" id="st-files">0</div>
+     <div class="sc-label">Files Processed</div>
+    </div>
+    <div class="stat-card">
+     <div class="sc-icon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+     <div class="sc-value" id="st-pii">0</div>
+     <div class="sc-label">PII Entities Detected</div>
+    </div>
+    <div class="stat-card">
+     <div class="sc-icon green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"/></svg></div>
+     <div class="sc-value" id="st-users">0</div>
+     <div class="sc-label">Registered Users</div>
+    </div>
+    <div class="stat-card">
+     <div class="sc-icon plum"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 15h6M9 11h6"/></svg></div>
+     <div class="sc-value" id="st-logs">0</div>
+     <div class="sc-label">Audit Events</div>
+    </div>
+   </div>
+   <div class="card">
+    <h3>&#128196; Recent Files</h3>
+    <table><thead><tr><th>Filename</th><th>Mode</th><th>PII Found</th><th>Date</th></tr></thead><tbody id="dash-files"></tbody></table>
+   </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div id="page-upload" class="hidden">
+   <div class="card">
+    <h3>&#128228; Upload &amp; Sanitize</h3>
+    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
+     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+     <p>Drag &amp; drop your file here, or click to browse</p>
+     <p class="formats-hint">Supported: .docx .pdf .xlsx .sql .csv .json .txt .png .jpg</p>
+    </div>
+    <input type="file" id="file-input" class="hidden" accept=".docx,.pdf,.xlsx,.xls,.sql,.csv,.json,.txt,.png,.jpg,.jpeg" onchange="fileSelected(this)">
+
+    <div style="margin-top:24px">
+     <label style="font-size:.85rem;font-weight:600;color:var(--text-muted);margin-bottom:10px;display:block">Sanitization Mode</label>
+     <div class="mode-cards">
+      <div class="mode-card selected" data-mode="redact" onclick="selectMode(this)">
+       <h4>&#128274; Redact</h4>
+       <p>Replace with [REDACTED]</p>
+      </div>
+      <div class="mode-card" data-mode="mask" onclick="selectMode(this)">
+       <h4>&#127917; Mask</h4>
+       <p>Partial masking: A****</p>
+      </div>
+      <div class="mode-card" data-mode="tokenize" onclick="selectMode(this)">
+       <h4>&#128260; Tokenize</h4>
+       <p>Replace with UUID tokens</p>
+      </div>
+     </div>
+    </div>
+
+    <div class="upload-controls">
+     <span id="file-name">No file selected</span>
+     <button class="btn btn-primary" onclick="doUpload()" id="btn-upload" disabled>Upload &amp; Process</button>
+    </div>
+    <div id="upload-progress" class="hidden">&#9203; Processing your file... please wait</div>
+   </div>
+  </div>
+
+  <!-- FILES -->
+  <div id="page-files" class="hidden">
+   <div class="card">
+    <h3>&#128193; Processed Files</h3>
+    <div class="search-bar"><input placeholder="Search files..." oninput="filterFiles(this.value)"></div>
+    <table><thead><tr><th>Filename</th><th>Mode</th><th>PII Count</th><th>Date</th><th>Actions</th></tr></thead><tbody id="files-table"></tbody></table>
+   </div>
+  </div>
+
+  <!-- USERS -->
+  <div id="page-users" class="hidden">
+   <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+     <h3 style="margin:0">&#128101; User Management</h3>
+     <button class="btn btn-primary btn-sm" onclick="showCreateUser()">+ New User</button>
+    </div>
+    <table><thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Created</th></tr></thead><tbody id="users-table"></tbody></table>
+   </div>
+  </div>
+
+  <!-- LOGS -->
+  <div id="page-logs" class="hidden">
+   <div class="card">
+    <h3>&#128203; Audit Log</h3>
+    <table><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Target</th><th>Details</th></tr></thead><tbody id="logs-table"></tbody></table>
+   </div>
+  </div>
+
+ </div>
+</div>
+
+<!-- MODAL CONTAINER -->
 <div id="modal-container" class="hidden"></div>
 
 <script>
+/* ─── Scroll nav styling ─── */
+const landingNav=document.getElementById('landing-nav');
+window.addEventListener('scroll',()=>{
+ if(landingNav)landingNav.classList.toggle('scrolled',window.scrollY>40);
+});
+
+/* ─── Scroll Reveal ─── */
+const observer=new IntersectionObserver((entries)=>{
+ entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');observer.unobserve(e.target)}});
+},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+/* ─── Mobile menu ─── */
+function toggleMobileMenu(){document.getElementById('mobile-menu').classList.toggle('open')}
+function closeMobileMenu(){document.getElementById('mobile-menu').classList.remove('open')}
+
+/* ─── Landing mode showcase ─── */
+const modeData={
+ redact:{name:'Redact',after:'Name: [REDACTED]\nEmail: [REDACTED]\nAadhaar: [REDACTED]\nPhone: [REDACTED]'},
+ mask:{name:'Mask',after:'Name: A**********\nEmail: a***************@example.com\nAadhaar: XXXX XXXX 6625\nPhone: 91********34'},
+ tokenize:{name:'Tokenize',after:'Name: <a1b2c3d4-e5f6-7890-abcd-ef1234567890>\nEmail: <b2c3d4e5-f6a7-8901-bcde-f12345678901>\nAadhaar: <c3d4e5f6-a7b8-9012-cdef-123456789012>\nPhone: <d4e5f6a7-b8c9-0123-defa-234567890123>'}
+};
+function showLandingMode(mode,btn){
+ document.querySelectorAll('.mode-tab').forEach(t=>t.classList.remove('active'));
+ btn.classList.add('active');
+ document.getElementById('mode-name').textContent=modeData[mode].name;
+ document.getElementById('mode-after').textContent=modeData[mode].after;
+}
+
+/* ─── Login modal ─── */
+function openLogin(){document.getElementById('login-modal').classList.remove('hidden');document.getElementById('login-user').focus()}
+function closeLogin(){document.getElementById('login-modal').classList.add('hidden');document.getElementById('login-error').textContent=''}
+
+/* ─── Upload mode card selection ─── */
+let selectedMode='redact';
+function selectMode(card){
+ document.querySelectorAll('.mode-card').forEach(c=>c.classList.remove('selected'));
+ card.classList.add('selected');
+ selectedMode=card.dataset.mode;
+}
+
+/* ═══════════════════ API & APP LOGIC ═══════════════════ */
 const API='';
 let token='',currentUser=null,allFiles=[];
 
@@ -188,29 +812,40 @@ function api(path,opts={}){
 
 function toast(msg,type='success'){
  const d=document.createElement('div');d.className='toast toast-'+type;d.textContent=msg;
- document.body.appendChild(d);setTimeout(()=>d.remove(),3000);
+ document.body.appendChild(d);setTimeout(()=>d.remove(),3500);
 }
 
 function formatDate(d){return new Date(d).toLocaleString()}
 
 async function doLogin(){
- const u=document.getElementById('login-user').value,p=document.getElementById('login-pass').value;
+ const u=document.getElementById('login-user').value.trim(),p=document.getElementById('login-pass').value;
+ if(!u||!p){document.getElementById('login-error').textContent='Please enter username and password';return}
  try{
   const r=await api('/auth/login',{method:'POST',body:JSON.stringify({username:u,password:p})});
   token=r.access_token;localStorage.setItem('token',token);
   await loadUser();
-  document.getElementById('app-login').classList.add('hidden');
+  document.getElementById('login-modal').classList.add('hidden');
+  document.getElementById('app-landing').classList.add('hidden');
   document.getElementById('app-main').classList.remove('hidden');
   showPage('dashboard');
+  toast('Welcome back, '+currentUser.username+'!');
  }catch(e){document.getElementById('login-error').textContent=e.message}
 }
 
-function doLogout(){token='';localStorage.removeItem('token');location.reload()}
+function doLogout(){
+ token='';localStorage.removeItem('token');currentUser=null;
+ document.getElementById('app-main').classList.add('hidden');
+ document.getElementById('app-landing').classList.remove('hidden');
+ document.getElementById('login-error').textContent='';
+ window.scrollTo(0,0);
+ document.querySelectorAll('.reveal').forEach(el=>{if(!el.classList.contains('visible'))observer.observe(el)});
+}
 
 async function loadUser(){
  currentUser=await api('/auth/me');
  document.getElementById('display-user').textContent=currentUser.username;
  document.getElementById('display-role').textContent=currentUser.role.toUpperCase();
+ document.getElementById('user-avatar').textContent=currentUser.username.charAt(0).toUpperCase();
  const isAdmin=currentUser.role==='admin';
  document.getElementById('nav-upload').classList.toggle('hidden',!isAdmin);
  document.getElementById('nav-users').classList.toggle('hidden',!isAdmin);
@@ -220,9 +855,7 @@ async function loadUser(){
 function showPage(p){
  document.querySelectorAll('[id^="page-"]').forEach(el=>el.classList.add('hidden'));
  document.getElementById('page-'+p).classList.remove('hidden');
- document.querySelectorAll('.sidebar nav a').forEach(a=>{a.classList.toggle('active',a.dataset.page===p)});
- const titles={dashboard:'Dashboard',upload:'Upload Files',files:'Files',users:'Users',logs:'Audit Logs'};
- document.getElementById('page-title').textContent=titles[p]||p;
+ document.querySelectorAll('.app-nav-links a').forEach(a=>{a.classList.toggle('active',a.dataset.page===p)});
  if(p==='dashboard')loadDashboard();
  if(p==='files')loadFiles();
  if(p==='users')loadUsers();
@@ -247,19 +880,17 @@ async function loadDashboard(){
 }
 
 async function loadFiles(){
- try{
-  allFiles=await api('/files/');renderFiles(allFiles);
- }catch(e){toast(e.message,'error')}
+ try{allFiles=await api('/files/');renderFiles(allFiles)}catch(e){toast(e.message,'error')}
 }
 
 function renderFiles(list){
  const tb=document.getElementById('files-table');tb.innerHTML='';
  const isAdmin=currentUser.role==='admin';
  list.forEach(f=>{
-  const raw=isAdmin?`<button class="btn-outline btn-sm" onclick="downloadRaw('${f.id}','${esc(f.original_filename)}')">Raw</button>`:'';
-  const del=isAdmin?`<button class="btn-danger btn-sm" onclick="deleteFile('${f.id}')">Del</button>`:'';
+  const raw=isAdmin?`<button class="btn btn-outline btn-sm" onclick="downloadRaw('${f.id}','${esc(f.original_filename)}')">Raw</button>`:'';
+  const del=isAdmin?`<button class="btn btn-danger btn-sm" onclick="deleteFile('${f.id}')">Delete</button>`:'';
   tb.innerHTML+=`<tr><td>${esc(f.original_filename)}</td><td><span class="badge badge-${f.mode}">${f.mode}</span></td><td>${f.pii_count}</td><td>${formatDate(f.created_at)}</td>
-  <td style="display:flex;gap:6px"><button class="btn-primary btn-sm" onclick="downloadSan('${f.id}','${esc(f.original_filename)}')">Download</button>${raw}${del}</td></tr>`;
+  <td style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="downloadSan('${f.id}','${esc(f.original_filename)}')">Download</button>${raw}${del}</td></tr>`;
  });
 }
 
@@ -281,7 +912,7 @@ function downloadBlob(path,name){
 }
 
 async function deleteFile(id){
- if(!confirm('Delete this file?'))return;
+ if(!confirm('Delete this file permanently?'))return;
  try{await api(`/files/${id}`,{method:'DELETE'});toast('File deleted');loadFiles()}catch(e){toast(e.message,'error')}
 }
 
@@ -292,11 +923,10 @@ function handleDrop(e){e.preventDefault();e.currentTarget.classList.remove('drag
 async function doUpload(){
  if(!selectedFile)return;
  const fd=new FormData();fd.append('file',selectedFile);
- const mode=document.getElementById('mode-select').value;
  document.getElementById('upload-progress').classList.remove('hidden');
  document.getElementById('btn-upload').disabled=true;
  try{
-  const r=await fetch(API+`/files/upload?mode=${mode}`,{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+  const r=await fetch(API+`/files/upload?mode=${selectedMode}`,{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
   if(!r.ok){const e=await r.json();throw new Error(e.detail||'Upload failed')}
   const data=await r.json();
   toast(`Processed! Found ${data.pii_count} PII entities`);
@@ -323,7 +953,7 @@ function showCreateUser(){
   <div class="form-group"><label>Email</label><input id="nu-email" type="email"></div>
   <div class="form-group"><label>Password</label><input id="nu-pass" type="password"></div>
   <div class="form-group"><label>Role</label><select id="nu-role"><option value="user">Standard User</option><option value="admin">Admin</option></select></div>
-  <div class="actions"><button class="btn-outline" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="createUser()">Create</button></div>
+  <div class="actions"><button class="btn btn-outline" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="createUser()">Create</button></div>
  </div></div>`;
  mc.classList.remove('hidden');
 }
@@ -349,27 +979,29 @@ async function loadLogs(){
   const umap=Object.fromEntries(users.map(u=>[u.id,u.username]));
   const tb=document.getElementById('logs-table');tb.innerHTML='';
   logs.forEach(l=>{
-   tb.innerHTML+=`<tr><td>${formatDate(l.timestamp)}</td><td>${esc(umap[l.user_id]||l.user_id)}</td><td>${esc(l.action)}</td><td>${esc(l.target_file||'-')}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${esc(l.details||'-')}</td></tr>`;
+   tb.innerHTML+=`<tr><td>${formatDate(l.timestamp)}</td><td>${esc(umap[l.user_id]||l.user_id)}</td><td>${esc(l.action)}</td><td>${esc(l.target_file||'\u2014')}</td><td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.details||'\u2014')}</td></tr>`;
   });
  }catch(e){toast(e.message,'error')}
 }
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
 
-function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString();setTimeout(updateClock,1000)}
-
+/* ─── Auto-login on load ─── */
 window.addEventListener('DOMContentLoaded',()=>{
  const saved=localStorage.getItem('token');
  if(saved){
   token=saved;
   loadUser().then(()=>{
-   document.getElementById('app-login').classList.add('hidden');
+   document.getElementById('app-landing').classList.add('hidden');
    document.getElementById('app-main').classList.remove('hidden');
    showPage('dashboard');
   }).catch(()=>{localStorage.removeItem('token');token=''});
  }
- updateClock();
 });
+
+/* ─── Enter key for login ─── */
+document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+document.getElementById('login-user').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('login-pass').focus()});
 </script>
 </body>
 </html>

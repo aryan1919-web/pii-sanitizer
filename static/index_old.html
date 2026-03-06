@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PII Sanitizer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0f172a;--surface:#1e293b;--card:#334155;--accent:#3b82f6;--accent2:#22d3ee;--danger:#ef4444;--success:#22c55e;--text:#f1f5f9;--muted:#94a3b8;--border:#475569}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+a{color:var(--accent2);text-decoration:none}
+button{cursor:pointer;border:none;border-radius:8px;padding:10px 20px;font-size:.9rem;font-weight:600;transition:.2s}
+input,select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:8px;font-size:.9rem;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#2563eb}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-danger:hover{background:#dc2626}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:6px 14px;font-size:.8rem}
+
+.layout{display:flex;min-height:100vh}
+.sidebar{width:240px;background:var(--surface);padding:20px 0;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+.sidebar .logo{padding:0 20px 24px;font-size:1.3rem;font-weight:800;color:var(--accent2);display:flex;align-items:center;gap:8px}
+.sidebar .logo svg{width:28px;height:28px}
+.sidebar nav a{display:flex;align-items:center;gap:10px;padding:12px 20px;color:var(--muted);font-size:.9rem;transition:.2s;border-left:3px solid transparent}
+.sidebar nav a:hover,.sidebar nav a.active{color:var(--text);background:rgba(59,130,246,.08);border-left-color:var(--accent)}
+.sidebar .user-info{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border);font-size:.8rem;color:var(--muted)}
+.sidebar .user-info strong{color:var(--text);display:block;margin-bottom:2px}
+
+.main{flex:1;display:flex;flex-direction:column}
+.topbar{height:60px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px}
+.topbar h2{font-size:1.1rem;font-weight:600}
+.content{flex:1;padding:28px;overflow-y:auto}
+
+.login-wrapper{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg)}
+.login-card{background:var(--surface);padding:40px;border-radius:16px;width:400px;max-width:90vw;border:1px solid var(--border)}
+.login-card h1{text-align:center;margin-bottom:8px;color:var(--accent2)}
+.login-card p{text-align:center;color:var(--muted);margin-bottom:28px;font-size:.9rem}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;margin-bottom:6px;font-size:.85rem;color:var(--muted)}
+.login-card button{width:100%;margin-top:8px}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.stat-card .value{font-size:1.8rem;font-weight:700}
+.stat-card .label{font-size:.8rem;color:var(--muted);margin-top:4px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card h3{margin-bottom:16px;font-size:1rem}
+
+.upload-zone{border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;transition:.2s;cursor:pointer}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(59,130,246,.05)}
+.upload-zone p{color:var(--muted);margin-top:8px;font-size:.9rem}
+.upload-controls{display:flex;gap:12px;align-items:center;margin-top:16px;justify-content:center;flex-wrap:wrap}
+
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--border);font-size:.85rem}
+th{color:var(--muted);font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.5px}
+tr:hover td{background:rgba(59,130,246,.04)}
+
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+.badge-admin{background:rgba(59,130,246,.15);color:var(--accent)}
+.badge-user{background:rgba(34,211,238,.15);color:var(--accent2)}
+.badge-redact{background:rgba(239,68,68,.15);color:var(--danger)}
+.badge-mask{background:rgba(234,179,8,.15);color:#eab308}
+.badge-tokenize{background:rgba(34,211,238,.15);color:var(--accent2)}
+
+.toast{position:fixed;bottom:24px;right:24px;padding:14px 24px;border-radius:10px;font-size:.9rem;z-index:9999;animation:slideIn .3s ease}
+.toast-success{background:var(--success);color:#fff}
+.toast-error{background:var(--danger);color:#fff}
+@keyframes slideIn{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+.hidden{display:none!important}
+.loading{opacity:.6;pointer-events:none}
+.search-bar{margin-bottom:16px}
+.search-bar input{max-width:320px}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:999}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:440px;max-width:90vw}
+.modal h3{margin-bottom:20px}
+.modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+</style>
+</head>
+<body>
+
+<div id="app-login" class="login-wrapper">
+ <div class="login-card">
+  <h1>&#128274; PII Sanitizer</h1>
+  <p>Secure PII Detection & Masking System</p>
+  <div class="form-group"><label>Username</label><input id="login-user" value="admin"></div>
+  <div class="form-group"><label>Password</label><input id="login-pass" type="password" value="admin123"></div>
+  <button class="btn-primary" onclick="doLogin()">Sign In</button>
+  <p id="login-error" style="color:var(--danger);margin-top:12px;font-size:.85rem"></p>
+ </div>
+</div>
+
+<div id="app-main" class="layout hidden">
+ <aside class="sidebar">
+  <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> PII Sanitizer</div>
+  <nav>
+   <a href="#" class="active" data-page="dashboard" onclick="showPage('dashboard')">&#128202; Dashboard</a>
+   <a href="#" data-page="upload" onclick="showPage('upload')" id="nav-upload">&#128228; Upload Files</a>
+   <a href="#" data-page="files" onclick="showPage('files')">&#128196; Files</a>
+   <a href="#" data-page="users" onclick="showPage('users')" id="nav-users">&#128101; Users</a>
+   <a href="#" data-page="logs" onclick="showPage('logs')" id="nav-logs">&#128220; Audit Logs</a>
+  </nav>
+  <div class="user-info"><strong id="display-user"></strong><span id="display-role"></span><br><a href="#" onclick="doLogout()" style="font-size:.8rem;color:var(--danger)">Logout</a></div>
+ </aside>
+ <div class="main">
+  <div class="topbar"><h2 id="page-title">Dashboard</h2><span style="font-size:.8rem;color:var(--muted)" id="clock"></span></div>
+  <div class="content">
+
+   <div id="page-dashboard">
+    <div class="stats">
+     <div class="stat-card"><div class="value" id="st-files">0</div><div class="label">Total Files Processed</div></div>
+     <div class="stat-card"><div class="value" id="st-pii">0</div><div class="label">PII Entities Detected</div></div>
+     <div class="stat-card"><div class="value" id="st-users">0</div><div class="label">Registered Users</div></div>
+     <div class="stat-card"><div class="value" id="st-logs">0</div><div class="label">Audit Events</div></div>
+    </div>
+    <div class="card"><h3>Recent Files</h3><table><thead><tr><th>Filename</th><th>Mode</th><th>PII Found</th><th>Date</th></tr></thead><tbody id="dash-files"></tbody></table></div>
+   </div>
+
+   <div id="page-upload" class="hidden">
+    <div class="card">
+     <h3>Upload & Sanitize File</h3>
+     <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+      <p>Drag & drop file here or click to browse</p>
+      <p style="font-size:.75rem;color:var(--border)">Supported: .docx .pdf .xlsx .sql .csv .json .txt .png .jpg (OCR)</p>
+     </div>
+     <input type="file" id="file-input" class="hidden" accept=".docx,.pdf,.xlsx,.xls,.sql,.csv,.json,.txt,.png,.jpg,.jpeg" onchange="fileSelected(this)">
+     <div class="upload-controls">
+      <span id="file-name" style="color:var(--muted);font-size:.85rem">No file selected</span>
+      <select id="mode-select" style="width:auto">
+       <option value="redact">Redact [REDACTED]</option>
+       <option value="mask">Mask (partial)</option>
+       <option value="tokenize">Tokenize (UUID)</option>
+      </select>
+      <button class="btn-primary" onclick="doUpload()" id="btn-upload" disabled>Upload & Process</button>
+     </div>
+     <div id="upload-progress" class="hidden" style="margin-top:16px;text-align:center;color:var(--accent)">Processing... please wait</div>
+    </div>
+   </div>
+
+   <div id="page-files" class="hidden">
+    <div class="card">
+     <h3>Processed Files</h3>
+     <div class="search-bar"><input placeholder="Search files..." oninput="filterFiles(this.value)"></div>
+     <table><thead><tr><th>Filename</th><th>Mode</th><th>PII Count</th><th>Date</th><th>Actions</th></tr></thead><tbody id="files-table"></tbody></table>
+    </div>
+   </div>
+
+   <div id="page-users" class="hidden">
+    <div class="card">
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><h3 style="margin:0">User Management</h3><button class="btn-primary btn-sm" onclick="showCreateUser()">+ New User</button></div>
+     <table><thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Created</th></tr></thead><tbody id="users-table"></tbody></table>
+    </div>
+   </div>
+
+   <div id="page-logs" class="hidden">
+    <div class="card">
+     <h3>Audit Log</h3>
+     <table><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Target</th><th>Details</th></tr></thead><tbody id="logs-table"></tbody></table>
+    </div>
+   </div>
+
+  </div>
+ </div>
+</div>
+
+<div id="modal-container" class="hidden"></div>
+
+<script>
+const API='';
+let token='',currentUser=null,allFiles=[];
+
+function api(path,opts={}){
+ const h={'Content-Type':'application/json',...(opts.headers||{})};
+ if(token)h['Authorization']='Bearer '+token;
+ return fetch(API+path,{...opts,headers:h}).then(async r=>{
+  if(!r.ok){const e=await r.json().catch(()=>({detail:'Request failed'}));throw new Error(e.detail||'Error')}
+  if(r.status===204)return null;
+  return r.json();
+ });
+}
+
+function toast(msg,type='success'){
+ const d=document.createElement('div');d.className='toast toast-'+type;d.textContent=msg;
+ document.body.appendChild(d);setTimeout(()=>d.remove(),3000);
+}
+
+function formatDate(d){return new Date(d).toLocaleString()}
+
+async function doLogin(){
+ const u=document.getElementById('login-user').value,p=document.getElementById('login-pass').value;
+ try{
+  const r=await api('/auth/login',{method:'POST',body:JSON.stringify({username:u,password:p})});
+  token=r.access_token;localStorage.setItem('token',token);
+  await loadUser();
+  document.getElementById('app-login').classList.add('hidden');
+  document.getElementById('app-main').classList.remove('hidden');
+  showPage('dashboard');
+ }catch(e){document.getElementById('login-error').textContent=e.message}
+}
+
+function doLogout(){token='';localStorage.removeItem('token');location.reload()}
+
+async function loadUser(){
+ currentUser=await api('/auth/me');
+ document.getElementById('display-user').textContent=currentUser.username;
+ document.getElementById('display-role').textContent=currentUser.role.toUpperCase();
+ const isAdmin=currentUser.role==='admin';
+ document.getElementById('nav-upload').classList.toggle('hidden',!isAdmin);
+ document.getElementById('nav-users').classList.toggle('hidden',!isAdmin);
+ document.getElementById('nav-logs').classList.toggle('hidden',!isAdmin);
+}
+
+function showPage(p){
+ document.querySelectorAll('[id^="page-"]').forEach(el=>el.classList.add('hidden'));
+ document.getElementById('page-'+p).classList.remove('hidden');
+ document.querySelectorAll('.sidebar nav a').forEach(a=>{a.classList.toggle('active',a.dataset.page===p)});
+ const titles={dashboard:'Dashboard',upload:'Upload Files',files:'Files',users:'Users',logs:'Audit Logs'};
+ document.getElementById('page-title').textContent=titles[p]||p;
+ if(p==='dashboard')loadDashboard();
+ if(p==='files')loadFiles();
+ if(p==='users')loadUsers();
+ if(p==='logs')loadLogs();
+}
+
+async function loadDashboard(){
+ try{
+  const files=await api('/files/');
+  allFiles=files;
+  document.getElementById('st-files').textContent=files.length;
+  document.getElementById('st-pii').textContent=files.reduce((s,f)=>s+f.pii_count,0);
+  const tb=document.getElementById('dash-files');tb.innerHTML='';
+  files.slice(0,5).forEach(f=>{
+   tb.innerHTML+=`<tr><td>${esc(f.original_filename)}</td><td><span class="badge badge-${f.mode}">${f.mode}</span></td><td>${f.pii_count}</td><td>${formatDate(f.created_at)}</td></tr>`;
+  });
+  if(currentUser.role==='admin'){
+   const users=await api('/auth/users');document.getElementById('st-users').textContent=users.length;
+   const logs=await api('/auth/logs');document.getElementById('st-logs').textContent=logs.length;
+  }
+ }catch(e){}
+}
+
+async function loadFiles(){
+ try{
+  allFiles=await api('/files/');renderFiles(allFiles);
+ }catch(e){toast(e.message,'error')}
+}
+
+function renderFiles(list){
+ const tb=document.getElementById('files-table');tb.innerHTML='';
+ const isAdmin=currentUser.role==='admin';
+ list.forEach(f=>{
+  const raw=isAdmin?`<button class="btn-outline btn-sm" onclick="downloadRaw('${f.id}','${esc(f.original_filename)}')">Raw</button>`:'';
+  const del=isAdmin?`<button class="btn-danger btn-sm" onclick="deleteFile('${f.id}')">Del</button>`:'';
+  tb.innerHTML+=`<tr><td>${esc(f.original_filename)}</td><td><span class="badge badge-${f.mode}">${f.mode}</span></td><td>${f.pii_count}</td><td>${formatDate(f.created_at)}</td>
+  <td style="display:flex;gap:6px"><button class="btn-primary btn-sm" onclick="downloadSan('${f.id}','${esc(f.original_filename)}')">Download</button>${raw}${del}</td></tr>`;
+ });
+}
+
+function filterFiles(q){
+ const filtered=allFiles.filter(f=>f.original_filename.toLowerCase().includes(q.toLowerCase()));
+ renderFiles(filtered);
+}
+
+function downloadSan(id,name){downloadBlob(`/files/${id}/download`,'sanitized_'+name)}
+function downloadRaw(id,name){downloadBlob(`/files/${id}/raw`,name)}
+
+function downloadBlob(path,name){
+ fetch(API+path,{headers:{'Authorization':'Bearer '+token}}).then(r=>{
+  if(!r.ok)throw new Error('Download failed');return r.blob();
+ }).then(b=>{
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();URL.revokeObjectURL(a.href);
+  toast('Downloaded '+name);
+ }).catch(e=>toast(e.message,'error'));
+}
+
+async function deleteFile(id){
+ if(!confirm('Delete this file?'))return;
+ try{await api(`/files/${id}`,{method:'DELETE'});toast('File deleted');loadFiles()}catch(e){toast(e.message,'error')}
+}
+
+let selectedFile=null;
+function fileSelected(inp){selectedFile=inp.files[0];document.getElementById('file-name').textContent=selectedFile?selectedFile.name:'No file selected';document.getElementById('btn-upload').disabled=!selectedFile}
+function handleDrop(e){e.preventDefault();e.currentTarget.classList.remove('dragover');const f=e.dataTransfer.files[0];if(f){selectedFile=f;document.getElementById('file-name').textContent=f.name;document.getElementById('btn-upload').disabled=false}}
+
+async function doUpload(){
+ if(!selectedFile)return;
+ const fd=new FormData();fd.append('file',selectedFile);
+ const mode=document.getElementById('mode-select').value;
+ document.getElementById('upload-progress').classList.remove('hidden');
+ document.getElementById('btn-upload').disabled=true;
+ try{
+  const r=await fetch(API+`/files/upload?mode=${mode}`,{method:'POST',headers:{'Authorization':'Bearer '+token},body:fd});
+  if(!r.ok){const e=await r.json();throw new Error(e.detail||'Upload failed')}
+  const data=await r.json();
+  toast(`Processed! Found ${data.pii_count} PII entities`);
+  selectedFile=null;document.getElementById('file-input').value='';document.getElementById('file-name').textContent='No file selected';
+ }catch(e){toast(e.message,'error')}
+ document.getElementById('upload-progress').classList.add('hidden');
+ document.getElementById('btn-upload').disabled=true;
+}
+
+async function loadUsers(){
+ try{
+  const users=await api('/auth/users');
+  const tb=document.getElementById('users-table');tb.innerHTML='';
+  users.forEach(u=>{
+   tb.innerHTML+=`<tr><td>${esc(u.username)}</td><td>${esc(u.email)}</td><td><span class="badge badge-${u.role}">${u.role}</span></td><td>${formatDate(u.created_at)}</td></tr>`;
+  });
+ }catch(e){toast(e.message,'error')}
+}
+
+function showCreateUser(){
+ const mc=document.getElementById('modal-container');
+ mc.innerHTML=`<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal"><h3>Create User</h3>
+  <div class="form-group"><label>Username</label><input id="nu-user"></div>
+  <div class="form-group"><label>Email</label><input id="nu-email" type="email"></div>
+  <div class="form-group"><label>Password</label><input id="nu-pass" type="password"></div>
+  <div class="form-group"><label>Role</label><select id="nu-role"><option value="user">Standard User</option><option value="admin">Admin</option></select></div>
+  <div class="actions"><button class="btn-outline" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="createUser()">Create</button></div>
+ </div></div>`;
+ mc.classList.remove('hidden');
+}
+
+function closeModal(){document.getElementById('modal-container').classList.add('hidden')}
+
+async function createUser(){
+ try{
+  await api('/auth/register',{method:'POST',body:JSON.stringify({
+   username:document.getElementById('nu-user').value,
+   email:document.getElementById('nu-email').value,
+   password:document.getElementById('nu-pass').value,
+   role:document.getElementById('nu-role').value
+  })});
+  toast('User created');closeModal();loadUsers();
+ }catch(e){toast(e.message,'error')}
+}
+
+async function loadLogs(){
+ try{
+  const logs=await api('/auth/logs');
+  const users=await api('/auth/users');
+  const umap=Object.fromEntries(users.map(u=>[u.id,u.username]));
+  const tb=document.getElementById('logs-table');tb.innerHTML='';
+  logs.forEach(l=>{
+   tb.innerHTML+=`<tr><td>${formatDate(l.timestamp)}</td><td>${esc(umap[l.user_id]||l.user_id)}</td><td>${esc(l.action)}</td><td>${esc(l.target_file||'-')}</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${esc(l.details||'-')}</td></tr>`;
+  });
+ }catch(e){toast(e.message,'error')}
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString();setTimeout(updateClock,1000)}
+
+window.addEventListener('DOMContentLoaded',()=>{
+ const saved=localStorage.getItem('token');
+ if(saved){
+  token=saved;
+  loadUser().then(()=>{
+   document.getElementById('app-login').classList.add('hidden');
+   document.getElementById('app-main').classList.remove('hidden');
+   showPage('dashboard');
+  }).catch(()=>{localStorage.removeItem('token');token=''});
+ }
+ updateClock();
+});
+</script>
+</body>
+</html>
