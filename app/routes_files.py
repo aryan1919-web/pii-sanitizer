@@ -45,7 +45,7 @@ async def upload(
     file: UploadFile = FastAPIFile(...),
     mode: str = Query("redact", regex="^(redact|mask|tokenize)$"),
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    user: User = Depends(get_current_user),
 ):
     raw = await file.read()
     orig_hash = hashlib.sha256(raw).hexdigest()
@@ -53,7 +53,7 @@ async def upload(
     # Security scan — reject malicious files before processing
     is_safe, reject_reason = scan_file(file.filename, raw)
     if not is_safe:
-        log_action(db, admin.id, ActionType.FILE_REJECTED, target_file=file.filename, details=reject_reason)
+        log_action(db, user.id, ActionType.FILE_REJECTED, target_file=file.filename, details=reject_reason)
         raise HTTPException(status_code=400, detail=f"File rejected: {reject_reason}")
 
     encrypted = encrypt_bytes(raw)
@@ -64,7 +64,7 @@ async def upload(
     with open(enc_path, "wb") as f:
         f.write(encrypted)
 
-    log_action(db, admin.id, ActionType.UPLOAD, target_file=file.filename)
+    log_action(db, user.id, ActionType.UPLOAD, target_file=file.filename)
 
     sanitized_data, pii_count = process_file(raw, file.filename, mode)
     san_hash = hashlib.sha256(sanitized_data).hexdigest()
@@ -73,14 +73,14 @@ async def upload(
     with open(san_path, "wb") as f:
         f.write(sanitized_data)
 
-    log_action(db, admin.id, ActionType.PII_DETECTION, target_file=file.filename, details=f"Detected {pii_count} PII entities, mode={mode}")
+    log_action(db, user.id, ActionType.PII_DETECTION, target_file=file.filename, details=f"Detected {pii_count} PII entities, mode={mode}")
 
     db_file = File(
         id=file_id,
         original_filename=file.filename,
         encrypted_path=enc_path,
         sanitized_path=san_path,
-        upload_by=admin.id,
+        upload_by=user.id,
         mode=mode,
         pii_count=pii_count,
         original_hash=orig_hash,
@@ -94,7 +94,17 @@ async def upload(
 
 @router.get("/", response_model=list[FileOut])
 def list_files(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    return db.query(File).order_by(File.created_at.desc()).all()
+    if user.role == Role.ADMIN:
+        # Admin sees every file
+        return db.query(File).order_by(File.created_at.desc()).all()
+    # Regular user sees own uploads + all admin uploads
+    admin_ids = [u.id for u in db.query(User).filter(User.role == Role.ADMIN).all()]
+    return (
+        db.query(File)
+        .filter((File.upload_by == user.id) | (File.upload_by.in_(admin_ids)))
+        .order_by(File.created_at.desc())
+        .all()
+    )
 
 
 @router.get("/{file_id}/download")
@@ -102,6 +112,11 @@ def download_sanitized(file_id: str, db: Session = Depends(get_db), user: User =
     rec = db.query(File).filter(File.id == file_id).first()
     if not rec:
         raise HTTPException(status_code=404, detail="File not found")
+    # Access control: user can download own files + admin-uploaded files
+    if user.role != Role.ADMIN:
+        uploader = db.query(User).filter(User.id == rec.upload_by).first()
+        if rec.upload_by != user.id and (not uploader or uploader.role != Role.ADMIN):
+            raise HTTPException(status_code=403, detail="Access denied")
     if not rec.sanitized_path or not os.path.exists(rec.sanitized_path):
         raise HTTPException(status_code=404, detail="Sanitized file not available")
     with open(rec.sanitized_path, "rb") as f:
@@ -172,10 +187,12 @@ def verify_file(file_id: str, db: Session = Depends(get_db), admin: User = Depen
 
 
 @router.delete("/{file_id}", status_code=204)
-def delete_file(file_id: str, db: Session = Depends(get_db), admin: User = Depends(require_admin)):
+def delete_file(file_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     rec = db.query(File).filter(File.id == file_id).first()
     if not rec:
         raise HTTPException(status_code=404, detail="File not found")
+    if user.role != Role.ADMIN and rec.upload_by != user.id:
+        raise HTTPException(status_code=403, detail="Not allowed to delete this file")
     for path in [rec.encrypted_path, rec.sanitized_path]:
         if path and os.path.exists(path):
             os.remove(path)

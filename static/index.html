@@ -1190,7 +1190,6 @@ async function loadUser(){
  document.getElementById('display-role').textContent=currentUser.role.toUpperCase();
  document.getElementById('user-avatar').textContent=currentUser.username.charAt(0).toUpperCase();
  const isAdmin=currentUser.role==='admin';
- document.getElementById('nav-upload').classList.toggle('hidden',!isAdmin);
  document.getElementById('nav-users').classList.toggle('hidden',!isAdmin);
  document.getElementById('nav-logs').classList.toggle('hidden',!isAdmin);
 }
@@ -1230,8 +1229,9 @@ function renderFiles(list){
  const tb=document.getElementById('files-table');tb.innerHTML='';
  const isAdmin=currentUser.role==='admin';
  list.forEach(f=>{
+  const isOwner=f.upload_by===currentUser.id;
   const raw=isAdmin?`<button class="btn btn-outline btn-sm" onclick="downloadRaw('${f.id}','${esc(f.original_filename)}')">Raw</button>`:'';
-  const del=isAdmin?`<button class="btn btn-danger btn-sm" onclick="deleteFile('${f.id}')">Delete</button>`:'';
+  const del=(isAdmin||isOwner)?`<button class="btn btn-danger btn-sm" onclick="deleteFile('${f.id}')">Delete</button>`:'';
   const verify=`<button class="btn btn-sm" id="verify-${f.id}" style="background:#6c757d;color:#fff;border:none" onclick="verifyFile('${f.id}')">&#128737; Verify</button>`;
   tb.innerHTML+=`<tr><td>${esc(f.original_filename)}</td><td><span class="badge badge-${f.mode}">${f.mode}</span></td><td>${f.pii_count}</td><td>${formatDate(f.created_at)}</td>
   <td style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="downloadSan('${f.id}','${esc(f.original_filename)}')">Download</button>${raw}${verify}${del}</td></tr>`;

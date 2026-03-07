@@ -51,5 +51,6 @@ class FileOut(BaseModel):
     pii_count: int
     original_hash: str | None = None
     sanitized_hash: str | None = None
+    upload_by: str
     created_at: datetime
     model_config = {"from_attributes": True}
