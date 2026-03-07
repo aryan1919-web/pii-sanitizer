@@ -3,6 +3,7 @@ import fitz
 from PIL import Image
 from app.pii_engine import sanitize
 from app.ocr_engine import run_ocr_text, _load_config
+from concurrent.futures import ThreadPoolExecutor
 
 
 def _has_selectable_text(doc) -> bool:
@@ -22,7 +23,8 @@ def _ocr_page_to_text(page) -> str:
 
 
 def _process_text_pdf(src, mode: str) -> tuple[bytes, int]:
-    total = 0
+    # Collect all spans with their metadata first
+    spans_info = []
     for i in range(len(src)):
         page = src[i]
         blocks = page.get_text("dict")["blocks"]
@@ -34,26 +36,52 @@ def _process_text_pdf(src, mode: str) -> tuple[bytes, int]:
                     text = span["text"]
                     if not text.strip():
                         continue
-                    cleaned, c = sanitize(text, mode)
-                    total += c
-                    if c > 0:
-                        rect = fitz.Rect(span["bbox"])
-                        page.add_redact_annot(rect)
-                        page.apply_redactions()
-                        page.insert_textbox(
-                            rect, cleaned,
-                            fontsize=span["size"] * 0.9,
-                            fontname="helv", color=(0, 0, 0),
-                        )
+                    spans_info.append({
+                        "page_idx": i,
+                        "text": text,
+                        "bbox": span["bbox"],
+                        "size": span["size"],
+                    })
+
+    if not spans_info:
+        out = src.tobytes(deflate=True, garbage=4)
+        src.close()
+        return out, 0
+
+    # Batch: join all texts with a unique separator, run ONE detect_pii call
+    separator = "\n\x00\n"
+    all_text = separator.join(s["text"] for s in spans_info)
+    cleaned_text, total = sanitize(all_text, mode)
+
+    if total > 0:
+        # Split back into per-span cleaned texts
+        cleaned_parts = cleaned_text.split(separator)
+        for idx, span_info in enumerate(spans_info):
+            if idx < len(cleaned_parts):
+                cleaned = cleaned_parts[idx]
+            else:
+                cleaned = span_info["text"]
+            if cleaned != span_info["text"]:
+                page = src[span_info["page_idx"]]
+                rect = fitz.Rect(span_info["bbox"])
+                page.add_redact_annot(rect)
+                page.apply_redactions()
+                page.insert_textbox(
+                    rect, cleaned,
+                    fontsize=span_info["size"] * 0.9,
+                    fontname="helv", color=(0, 0, 0),
+                )
+
     out = src.tobytes(deflate=True, garbage=4)
     src.close()
     return out, total
 
 
 def _process_scanned_pdf(src, mode: str) -> tuple[bytes, int]:
-    all_text = []
-    for i in range(len(src)):
-        all_text.append(_ocr_page_to_text(src[i]))
+    pages = [src[i] for i in range(len(src))]
+    # OCR pages in parallel
+    with ThreadPoolExecutor(max_workers=min(4, len(pages))) as executor:
+        all_text = list(executor.map(_ocr_page_to_text, pages))
     src.close()
     full_text = "\n".join(all_text)
     if not full_text.strip():

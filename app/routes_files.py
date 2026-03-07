@@ -1,6 +1,8 @@
 import os
 import uuid
 import hashlib
+import asyncio
+from functools import partial
 from fastapi import APIRouter, Depends, UploadFile, File as FastAPIFile, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -66,7 +68,11 @@ async def upload(
 
     log_action(db, user.id, ActionType.UPLOAD, target_file=file.filename)
 
-    sanitized_data, pii_count = process_file(raw, file.filename, mode)
+    # Run heavy processing in thread pool to avoid blocking the event loop
+    loop = asyncio.get_event_loop()
+    sanitized_data, pii_count = await loop.run_in_executor(
+        None, partial(process_file, raw, file.filename, mode)
+    )
     san_hash = hashlib.sha256(sanitized_data).hexdigest()
     san_path = os.path.join(settings.SANITIZED_DIR, f"{file_id}{ext}")
     os.makedirs(settings.SANITIZED_DIR, exist_ok=True)

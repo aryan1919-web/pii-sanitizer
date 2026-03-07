@@ -6,26 +6,34 @@ from app.pii_engine import sanitize
 
 def parse_docx(data: bytes, mode: str = "redact") -> tuple[bytes, int]:
     doc = Document(io.BytesIO(data))
-    total = 0
 
+    # Collect all paragraphs (body + tables) with their text
+    all_paras = []
     for para in doc.paragraphs:
-        if not para.text.strip():
-            continue
-        cleaned, c = sanitize(para.text, mode)
-        total += c
-        if c > 0:
-            _replace_runs(para, cleaned)
-
+        if para.text.strip():
+            all_paras.append(para)
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for para in cell.paragraphs:
-                    if not para.text.strip():
-                        continue
-                    cleaned, c = sanitize(para.text, mode)
-                    total += c
-                    if c > 0:
-                        _replace_runs(para, cleaned)
+                    if para.text.strip():
+                        all_paras.append(para)
+
+    if not all_paras:
+        buf = io.BytesIO()
+        doc.save(buf)
+        return buf.getvalue(), 0
+
+    # Batch: join all paragraph texts, single sanitize call
+    separator = "\n\x00\n"
+    all_text = separator.join(p.text for p in all_paras)
+    cleaned_text, total = sanitize(all_text, mode)
+
+    if total > 0:
+        cleaned_parts = cleaned_text.split(separator)
+        for idx, para in enumerate(all_paras):
+            if idx < len(cleaned_parts) and cleaned_parts[idx] != para.text:
+                _replace_runs(para, cleaned_parts[idx])
 
     buf = io.BytesIO()
     doc.save(buf)

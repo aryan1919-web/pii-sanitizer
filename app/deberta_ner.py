@@ -39,8 +39,59 @@ def _load_model():
 
 
 def deberta_detect(text: str) -> list[RecognizerResult]:
-    """Run DeBERTa NER on text and return RecognizerResult list."""
+    """Run DeBERTa NER on text and return RecognizerResult list.
+    
+    Uses a sliding window for texts longer than 1024 tokens.
+    """
     _load_model()
+
+    # Quick check: if text is short enough, process directly
+    token_count = len(_tokenizer.encode(text, add_special_tokens=False))
+    if token_count <= 900:
+        return _deberta_detect_window(text)
+
+    # Sliding window for long texts
+    max_chars = 3500  # ~900 tokens worth of chars
+    stride = 2800     # ~700 tokens overlap region
+    all_results = []
+    pos = 0
+    while pos < len(text):
+        end = min(pos + max_chars, len(text))
+        # Try to break at whitespace
+        if end < len(text):
+            bp = text.rfind(' ', pos + stride, end)
+            if bp > pos:
+                end = bp + 1
+        chunk = text[pos:end]
+        chunk_results = _deberta_detect_window(chunk)
+        # Offset to original positions
+        for r in chunk_results:
+            all_results.append(RecognizerResult(
+                entity_type=r.entity_type,
+                start=r.start + pos,
+                end=r.end + pos,
+                score=r.score,
+            ))
+        pos = max(pos + 1, end - (max_chars - stride))
+
+    # Dedup overlapping results from window overlap
+    if not all_results:
+        return all_results
+    all_results.sort(key=lambda r: (r.start, -(r.end - r.start)))
+    deduped = [all_results[0]]
+    for r in all_results[1:]:
+        prev = deduped[-1]
+        if r.start < prev.end:
+            # Overlapping — keep the longer one
+            if (r.end - r.start) > (prev.end - prev.start):
+                deduped[-1] = r
+        else:
+            deduped.append(r)
+    return deduped
+
+
+def _deberta_detect_window(text: str) -> list[RecognizerResult]:
+    """Run DeBERTa NER on a single window of text."""
 
     inputs = _tokenizer(
         text, return_tensors="pt", truncation=True, max_length=1024,

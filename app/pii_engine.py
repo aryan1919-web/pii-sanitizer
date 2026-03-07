@@ -6,19 +6,25 @@ from presidio_anonymizer.entities import OperatorConfig
 from app.recognizers import CUSTOM_RECOGNIZERS, ENTITY_LIST
 from app.deberta_ner import deberta_detect
 
+# Threshold for switching to fast regex-only path (skips spaCy NER + DeBERTa)
+_FAST_PATH_CHARS = 2000
+
 _analyzer: AnalyzerEngine | None = None
 _anonymizer: AnonymizerEngine | None = None
 
 CONTEXT_KEYWORDS = {
     "PERSON": [
         r"(?:full\s*)?name\s*[:=]\s*",
-        r"applicant\s*[:=]\s*",
-        r"customer\s*[:=]\s*",
-        r"employee\s*[:=]\s*",
-        r"patient\s*[:=]\s*",
+        r"applicant\s*[:=]?\s*",
+        r"customer\s*[:=]?\s*",
+        r"employee\s*[:=]?\s*",
+        r"patient\s*[:=]?\s*",
         r"father'?s?\s*name\s*[:=]\s*",
         r"mother'?s?\s*name\s*[:=]\s*",
-        r"spouse\s*[:=]\s*",
+        r"spouse\s*[:=]?\s*",
+        r"(?:mr|mrs|ms|dr|prof)\.?\s+",
+        r"user\s*[:=]?\s*",
+        r"account\s*holder\s*[:=]?\s*",
     ],
     "DATE_OF_BIRTH": [
         r"(?:date\s*of\s*birth|dob|d\.o\.b|birth\s*date)\s*[:=]\s*",
@@ -115,6 +121,21 @@ def _keyword_context_scan(text: str) -> list[RecognizerResult]:
                 next_label = _NEXT_LABEL_RE.search(segment)
                 if next_label:
                     segment = segment[:next_label.start()]
+
+                # For PERSON, limit to name-like text (2-4 capitalized words)
+                if entity_type == "PERSON":
+                    name_match = re.match(r'\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})', segment)
+                    if name_match:
+                        val = name_match.group(1).strip()
+                        name_start = val_start + name_match.start(1)
+                        results.append(RecognizerResult(
+                            entity_type=entity_type,
+                            start=name_start,
+                            end=name_start + len(val),
+                            score=0.85,
+                        ))
+                    continue
+
                 val = segment.strip()
                 if val and len(val) > 1:
                     results.append(RecognizerResult(
@@ -228,6 +249,19 @@ def _dedup_results(results: list[RecognizerResult]) -> list[RecognizerResult]:
 
 
 def detect_pii(text: str, language: str = "en") -> list:
+    if not text or not text.strip():
+        return []
+
+    # Short texts: full pipeline (Presidio NER + keyword + DeBERTa)
+    if len(text) <= _FAST_PATH_CHARS:
+        return _detect_full(text, language)
+
+    # Large texts: fast regex-only path (no spaCy NER, no DeBERTa)
+    return _detect_fast(text)
+
+
+def _detect_full(text: str, language: str = "en") -> list:
+    """Full PII detection: Presidio (regex + spaCy NER) + keyword + DeBERTa."""
     # Pass 1: Presidio (regex + spaCy NER)
     presidio_results = get_analyzer().analyze(text=text, entities=ENTITY_LIST, language=language)
     presidio_results = _clip_at_newline(list(presidio_results), text)
@@ -235,16 +269,51 @@ def detect_pii(text: str, language: str = "en") -> list:
     # Pass 2: Keyword-context scanning
     context_results = _keyword_context_scan(text)
     # Pass 3: DeBERTa-v3 deep learning NER
+    deberta_results = []
     try:
         deberta_results = deberta_detect(text)
         deberta_results = _clip_at_newline(deberta_results, text)
     except Exception:
-        deberta_results = []
+        pass
+
     all_results = presidio_results + context_results + deberta_results
-    all_entity_types = set(ENTITY_LIST) | {"BANK_NAME"}
-    for r in all_results:
-        if r.entity_type not in all_entity_types:
-            all_entity_types.add(r.entity_type)
+    return _dedup_results(all_results)
+
+
+def _detect_fast(text: str) -> list:
+    """Fast regex-only PII detection for large texts.
+
+    Runs custom regex recognizers + keyword context directly,
+    skipping Presidio's expensive spaCy NER pipeline and DeBERTa.
+    Also adds a built-in email regex since Presidio's EMAIL_ADDRESS
+    recognizer is internal.
+    """
+    all_results = []
+
+    # Run all custom regex recognizers directly
+    for recognizer in CUSTOM_RECOGNIZERS:
+        for pattern_obj in recognizer.patterns:
+            compiled = re.compile(pattern_obj.regex)
+            for m in compiled.finditer(text):
+                all_results.append(RecognizerResult(
+                    entity_type=recognizer.supported_entities[0],
+                    start=m.start(),
+                    end=m.end(),
+                    score=pattern_obj.score,
+                ))
+
+    # Email regex (Presidio has this built-in, we need it here)
+    for m in re.finditer(r'\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b', text):
+        all_results.append(RecognizerResult(
+            entity_type="EMAIL_ADDRESS", start=m.start(), end=m.end(), score=0.85,
+        ))
+
+    # Keyword-context scanning (catches names after "customer", "name:", etc.)
+    context_results = _keyword_context_scan(text)
+    all_results.extend(context_results)
+
+    # Clip at newlines and dedup
+    all_results = _clip_at_newline(all_results, text)
     return _dedup_results(all_results)
 
 
@@ -322,3 +391,53 @@ def sanitize(text: str, mode: str = "redact", language: str = "en") -> tuple[str
         return masked, count
 
     return text, 0
+
+
+# Separator for batch processing — null byte won't appear in normal text
+_BATCH_SEP = "\n\x00\n"
+_BATCH_MAX_CHARS = 50000  # Max combined text size per batch
+
+
+def sanitize_batch(texts: list[str], mode: str = "redact", language: str = "en") -> tuple[list[str], int]:
+    """Sanitize multiple texts in one or few PII detection passes.
+
+    Groups texts into batches of ~20K chars, runs one sanitize call per batch.
+    Much faster than calling sanitize() per text.
+    """
+    if not texts:
+        return [], 0
+
+    # Filter out empty texts but track their positions
+    non_empty = [(i, t) for i, t in enumerate(texts) if t and t.strip()]
+    if not non_empty:
+        return list(texts), 0
+
+    # Split into batches by character limit
+    batches = []
+    current_batch = []
+    current_size = 0
+    for item in non_empty:
+        item_len = len(item[1]) + len(_BATCH_SEP)
+        if current_batch and current_size + item_len > _BATCH_MAX_CHARS:
+            batches.append(current_batch)
+            current_batch = [item]
+            current_size = item_len
+        else:
+            current_batch.append(item)
+            current_size += item_len
+    if current_batch:
+        batches.append(current_batch)
+
+    result = list(texts)
+    total_count = 0
+
+    for batch in batches:
+        combined = _BATCH_SEP.join(t for _, t in batch)
+        cleaned, count = sanitize(combined, mode, language)
+        total_count += count
+        cleaned_parts = cleaned.split(_BATCH_SEP)
+        for idx, (orig_idx, _) in enumerate(batch):
+            if idx < len(cleaned_parts):
+                result[orig_idx] = cleaned_parts[idx]
+
+    return result, total_count
