@@ -1,0 +1,90 @@
+# ═══════════════════════════════════════════════════════════════════
+# PaddleOCR Configuration — Self-Hosted OCR Pipeline
+# ═══════════════════════════════════════════════════════════════════
+#
+# This file configures the PaddleOCR engine used for image and
+# scanned-document OCR in the PII Sanitizer application.
+#
+# User Prompts (fill in before first run):
+#   1. Do you have a GPU available? (yes / no)       → use_gpu
+#   2. CUDA version if GPU (e.g., 11.8, 11.7)       → cuda_version
+#   3. OCR languages (e.g., en, ch, hi, gu)          → lang
+#   4. Need document structure parsing?              → use_structure
+#   5. Want to fine-tune models?                     → fine_tune
+#   6. Output format(s) (txt, json, csv, image)      → output_formats
+#   7. Save directory for OCR outputs                → save_path
+#   8. DPI for PDF/Office conversion (rec. 300)      → dpi
+#   9. Max concurrent workers (rec. 2-8)             → concurrency
+# ═══════════════════════════════════════════════════════════════════
+
+# ── GPU / CPU Configuration ─────────────────────────────────
+use_gpu: false
+# cuda_version: "11.8"       # Uncomment and set if use_gpu is true
+
+# ── Language ─────────────────────────────────────────────────
+# PaddleOCR language code. Common codes:
+#   en (English), ch (Chinese), hi (Hindi/Devanagari),
+#   fr (French), german (German), japan (Japanese),
+#   korean (Korean), latin (Latin script), arabic, ta (Tamil),
+#   te (Telugu), ka (Kannada), devanagari
+# For multiple scripts, the engine will initialise per-language.
+lang: "en"
+
+# ── Model Selection ─────────────────────────────────────────
+# Recommended default: PP-OCRv4 (detector: DB; recognizer: SVTR_LCNet)
+model:
+  detector: "DB"              # DB or CRAFT
+  recognizer: "SVTR_LCNet"    # CRNN, SVTR, ViT-based
+  use_angle_cls: true         # Detect and correct text rotation
+
+# ── Detection / Recognition Thresholds ──────────────────────
+det_db_threshold: 0.3         # Detection confidence threshold
+rec_confidence_threshold: 0.5 # Recognition confidence threshold (drop below)
+max_image_long_side: 960      # Resize long side before detection
+batch_size: 1                 # Batch size (increase with more GPU memory)
+
+# ── DPI for Document Conversion ─────────────────────────────
+dpi: 300                      # PDF / Office → image conversion DPI
+
+# ── Preprocessing Options ───────────────────────────────────
+# Applied to images before OCR for improved accuracy.
+preprocessing:
+  deskew: false               # Auto-rotate skewed text
+  denoise: false              # Median filter denoising
+  sharpen: false              # Sharpen filter
+  contrast_enhance: false     # Increase contrast (1.5×)
+  binarization: null          # null | "otsu" | "adaptive"
+  auto_crop_text_regions: false
+  dpi_convert: 300            # Target DPI for scanned images
+
+# ── Postprocessing Options ──────────────────────────────────
+postprocessing:
+  spellcheck: false           # Enable spell-check correction
+  language_model_correction: false  # LM-based correction
+  confidence_threshold: 0.5   # Final filter on output confidence
+
+# ── Document Structure Parsing (PP-Structure) ───────────────
+# Enable for table/form extraction from document images.
+use_structure: false
+
+# ── Output Configuration ────────────────────────────────────
+output_formats:               # Supported: txt, json, csv, annotated_image
+  - txt
+  - json
+save_path: "./ocr_outputs"    # Directory for saved OCR outputs
+
+# ── Concurrency ─────────────────────────────────────────────
+concurrency: 4                # Max concurrent workers for batch processing
+
+# ── Fine-Tuning (Optional) ──────────────────────────────────
+fine_tune: false
+fine_tuning:
+  labeled_data_path: null     # Path to labeled dataset (COCO/ICDAR/LST)
+  epochs: 20                  # Number of fine-tuning epochs
+  learning_rate: 0.0001       # Initial learning rate
+  save_model_dir: "./models"  # Directory to save fine-tuned models
+
+# ── Logging ─────────────────────────────────────────────────
+logging:
+  level: "INFO"               # DEBUG, INFO, WARNING, ERROR
+  log_per_file: true          # Log per-file: path, steps, lines, confidence

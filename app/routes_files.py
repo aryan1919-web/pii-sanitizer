@@ -18,13 +18,25 @@ router = APIRouter(prefix="/files", tags=["Files"])
 MIME_MAP = {
     ".pdf": "application/pdf",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".doc": "application/msword",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".ppt": "application/vnd.ms-powerpoint",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xls": "application/vnd.ms-excel",
     ".sql": "text/plain",
     ".csv": "text/csv",
     ".json": "application/json",
     ".txt": "text/plain",
-    ".png": "text/plain",
-    ".jpg": "text/plain",
-    ".jpeg": "text/plain",
+    ".xml": "text/xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".tiff": "image/tiff",
+    ".tif": "image/tiff",
+    ".bmp": "image/bmp",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".heic": "image/heic",
 }
 
 

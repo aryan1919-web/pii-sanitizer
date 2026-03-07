@@ -19,3 +19,12 @@ transformers
 sentencepiece
 protobuf
 openpyxl
+# ── PaddleOCR (replaces pytesseract) ─────────────
+paddlepaddle
+paddleocr>=2.7
+PyYAML
+opencv-python
+python-pptx
+pdf2image
+# Optional: pillow-heif   # for HEIC/HEIF image support
+# Optional: unoconv       # for .doc/.ppt conversion (or install LibreOffice)

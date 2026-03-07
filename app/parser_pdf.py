@@ -1,24 +1,8 @@
 import io
-import os
 import fitz
+from PIL import Image
 from app.pii_engine import sanitize
-
-TESSERACT_PATHS = [
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-    r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-]
-
-
-def _configure_tesseract():
-    try:
-        import pytesseract
-        for p in TESSERACT_PATHS:
-            if os.path.exists(p):
-                pytesseract.pytesseract.tesseract_cmd = p
-                return True
-        return True
-    except ImportError:
-        return False
+from app.ocr_engine import run_ocr_text, _load_config
 
 
 def _has_selectable_text(doc) -> bool:
@@ -29,15 +13,12 @@ def _has_selectable_text(doc) -> bool:
 
 
 def _ocr_page_to_text(page) -> str:
-    try:
-        import pytesseract
-        from PIL import Image
-        _configure_tesseract()
-    except ImportError:
-        return ""
-    pix = page.get_pixmap(dpi=300)
-    img = Image.open(io.BytesIO(pix.tobytes("png")))
-    return pytesseract.image_to_string(img)
+    """Render a PDF page to an image and run PaddleOCR on it."""
+    config = _load_config()
+    dpi = config.get("dpi", 300)
+    pix = page.get_pixmap(dpi=dpi)
+    img = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
+    return run_ocr_text(img)
 
 
 def _process_text_pdf(src, mode: str) -> tuple[bytes, int]:

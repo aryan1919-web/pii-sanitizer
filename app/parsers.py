@@ -6,19 +6,51 @@ from app.parser_data import parse_csv, parse_json
 from app.parser_txt import parse_txt
 from app.parser_image import parse_image
 from app.parser_xlsx import parse_xlsx
+from app.parser_pptx import parse_pptx
+
+
+def _parse_office_via_pdf(data: bytes, mode: str, ext: str) -> tuple[bytes, int]:
+    """Convert .doc/.ppt to PDF via LibreOffice, then process as PDF."""
+    from app.converter import convert_office_to_pdf
+    pdf_data = convert_office_to_pdf(data, ext)
+    return parse_pdf(pdf_data, mode)
+
+
+def parse_doc(data: bytes, mode: str = "redact") -> tuple[bytes, int]:
+    return _parse_office_via_pdf(data, mode, ".doc")
+
+
+def parse_ppt(data: bytes, mode: str = "redact") -> tuple[bytes, int]:
+    return _parse_office_via_pdf(data, mode, ".ppt")
+
 
 PARSERS = {
-    ".docx": parse_docx,
-    ".pdf": parse_pdf,
-    ".sql": parse_sql,
-    ".csv": parse_csv,
+    # Text / data files (read directly — no OCR)
+    ".txt":  parse_txt,
+    ".csv":  parse_csv,
     ".json": parse_json,
-    ".txt": parse_txt,
+    ".xml":  parse_txt,
+    ".sql":  parse_sql,
+    # Office documents (direct text extraction)
+    ".docx": parse_docx,
     ".xlsx": parse_xlsx,
-    ".xls": parse_xlsx,
-    ".png": parse_image,
-    ".jpg": parse_image,
+    ".xls":  parse_xlsx,
+    ".pptx": parse_pptx,
+    # Office legacy (LibreOffice conversion → PDF → OCR)
+    ".doc":  parse_doc,
+    ".ppt":  parse_ppt,
+    # PDF (text extraction or OCR fallback)
+    ".pdf":  parse_pdf,
+    # Images (PaddleOCR)
+    ".png":  parse_image,
+    ".jpg":  parse_image,
     ".jpeg": parse_image,
+    ".tiff": parse_image,
+    ".tif":  parse_image,
+    ".bmp":  parse_image,
+    ".webp": parse_image,
+    ".gif":  parse_image,
+    ".heic": parse_image,
 }
 
 ALLOWED_EXTENSIONS = set(PARSERS.keys())

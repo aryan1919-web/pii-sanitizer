@@ -20,9 +20,10 @@ MAX_STRING_VALUE_SIZE = 1 * 1024 * 1024   # 1 MB
 MAX_IMAGE_PIXELS = 100_000_000            # 100 megapixels
 
 ALLOWED_EXTENSIONS = {
-    '.docx', '.pdf', '.xlsx', '.xls',
-    '.sql', '.csv', '.json', '.txt',
-    '.png', '.jpg', '.jpeg',
+    '.docx', '.pdf', '.xlsx', '.xls', '.doc', '.ppt', '.pptx',
+    '.sql', '.csv', '.json', '.txt', '.xml',
+    '.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp',
+    '.webp', '.gif', '.heic',
 }
 
 # MIME expectations per extension
@@ -30,14 +31,24 @@ _EXPECTED_MIMES = {
     '.docx': {'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'},
     '.xlsx': {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'},
     '.xls':  {'application/vnd.ms-excel'},
+    '.pptx': {'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'},
+    '.ppt':  {'application/vnd.ms-powerpoint'},
+    '.doc':  {'application/msword'},
     '.pdf':  {'application/pdf'},
     '.sql':  {'text/plain', 'application/sql', 'text/x-sql'},
     '.csv':  {'text/plain', 'text/csv'},
     '.json': {'text/plain', 'application/json'},
     '.txt':  {'text/plain'},
+    '.xml':  {'text/plain', 'text/xml', 'application/xml'},
     '.png':  {'image/png'},
     '.jpg':  {'image/jpeg'},
     '.jpeg': {'image/jpeg'},
+    '.tiff': {'image/tiff'},
+    '.tif':  {'image/tiff'},
+    '.bmp':  {'image/bmp', 'image/x-ms-bmp'},
+    '.webp': {'image/webp'},
+    '.gif':  {'image/gif'},
+    '.heic': {'image/heic'},
 }
 
 # Executable magic byte signatures (offset 0)
@@ -70,7 +81,7 @@ def scan_file(filename: str, file_bytes: bytes) -> tuple:
         return False, reason
 
     # Format-specific scans
-    if ext in ('.docx', '.xlsx', '.xls'):
+    if ext in ('.docx', '.xlsx', '.xls', '.pptx', '.doc', '.ppt'):
         ok, reason = _scan_office(file_bytes, ext)
         if not ok:
             return False, reason
@@ -95,12 +106,12 @@ def scan_file(filename: str, file_bytes: bytes) -> tuple:
         if not ok:
             return False, reason
 
-    elif ext == '.txt':
+    elif ext in ('.txt', '.xml'):
         ok, reason = _scan_text(file_bytes)
         if not ok:
             return False, reason
 
-    elif ext in ('.png', '.jpg', '.jpeg'):
+    elif ext in ('.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp', '.gif', '.heic'):
         ok, reason = _scan_image(file_bytes, ext)
         if not ok:
             return False, reason
@@ -152,10 +163,20 @@ def _detect_mime(data: bytes) -> str:
         return 'image/png'
     if data[:3] == b'\xff\xd8\xff':
         return 'image/jpeg'
+    if data[:4] in (b'\x49\x49\x2A\x00', b'\x4D\x4D\x00\x2A'):
+        return 'image/tiff'
+    if data[:2] == b'BM':
+        return 'image/bmp'
+    if data[:4] == b'RIFF' and len(data) >= 12 and data[8:12] == b'WEBP':
+        return 'image/webp'
+    if data[:6] in (b'GIF87a', b'GIF89a'):
+        return 'image/gif'
+    if len(data) >= 12 and data[4:8] == b'ftyp':
+        return 'image/heic'
     if data[:4] == b'PK\x03\x04':
-        return 'application/zip'  # Could be DOCX/XLSX/ZIP
+        return 'application/zip'  # Could be DOCX/XLSX/PPTX/ZIP
     if data[:8] == b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1':
-        return 'application/vnd.ms-excel'  # OLE compound (old xls)
+        return 'application/vnd.ms-excel'  # OLE compound (old xls/doc/ppt)
     return ''
 
 
@@ -186,10 +207,10 @@ def _check_executables(data: bytes) -> tuple:
 # ═══════════════════════════════════════════════════════════
 
 def _scan_office(data: bytes, ext: str) -> tuple:
-    if ext == '.xls':
-        # Old binary format — check for basic OLE macro markers
+    if ext in ('.xls', '.doc', '.ppt'):
+        # Old binary OLE format — check for basic macro markers
         if b'VBA' in data and b'Macro' in data:
-            return False, 'VBA macro detected in legacy Excel file'
+            return False, 'VBA macro detected in legacy Office file'
         return True, ''
 
     try:
@@ -484,12 +505,35 @@ def _scan_image(data: bytes, ext: str) -> tuple:
         if data[:3] != b'\xff\xd8\xff':
             return False, 'Invalid JPEG file (bad magic bytes)'
 
+    elif ext in ('.tiff', '.tif'):
+        if data[:4] not in (b'\x49\x49\x2A\x00', b'\x4D\x4D\x00\x2A'):
+            return False, 'Invalid TIFF file (bad magic bytes)'
+
+    elif ext == '.bmp':
+        if data[:2] != b'BM':
+            return False, 'Invalid BMP file (bad magic bytes)'
+
+    elif ext == '.webp':
+        if data[:4] != b'RIFF' or len(data) < 12 or data[8:12] != b'WEBP':
+            return False, 'Invalid WebP file (bad magic bytes)'
+
+    elif ext == '.gif':
+        if data[:6] not in (b'GIF87a', b'GIF89a'):
+            return False, 'Invalid GIF file (bad magic bytes)'
+
+    elif ext == '.heic':
+        if len(data) >= 12 and data[4:8] != b'ftyp':
+            return False, 'Invalid HEIC file (bad magic bytes)'
+
     # Polyglot detection — scan after image header for embedded code
     search_region = data[100:]  # Skip legitimate header
-    polyglot_markers = [b'<html', b'<script', b'<?php', b'<%', b'MZ']
+    polyglot_markers = [b'<html', b'<script', b'<?php', b'<%']
     for marker in polyglot_markers:
         if marker in search_region[:10000]:  # Check first 10KB after header
             return False, f'Polyglot file detected: image contains embedded "{marker.decode(errors="ignore")}" content'
+    # MZ (PE executable) is only suspicious at the very start — random pixel data can contain 0x4D5A
+    if data[:2] == b'MZ':
+        return False, 'Polyglot file detected: image contains embedded "MZ" content'
 
     # EXIF script injection
     exif_region = data[:65536]  # EXIF is in first 64KB
