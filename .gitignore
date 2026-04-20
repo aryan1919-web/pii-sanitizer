@@ -1,7 +1,41 @@
+# Python
 __pycache__/
-*.pyc
-*.db
-uploads/
-app/deberta_pii_model/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
 venv/
+.venv/
+env/
+
+# Environment
 .env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# App data
+uploads/
+sanitized/
+ocr_outputs/
+models/
+*.db
+
+# Logs
+*.log
+
+# OCR model cache
+~/.paddleocr/
