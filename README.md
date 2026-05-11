@@ -24,6 +24,15 @@ short_description: Automated PII detection and redaction engine
 
 > An automated PII detection and redaction engine that identifies and sanitizes **Aadhaar, PAN, phone numbers, emails, bank accounts, passports, and 20+ other PII types** from images, PDFs, Office documents, SQL, CSV, and JSON files using a **three-pass detection pipeline** (Presidio + Keyword Context + DeBERTa NER).
 
+<p align="center">
+  <a href="https://aryan1211-pii-sanitizer.hf.space">
+    <img src="https://img.shields.io/badge/🚀_Live_Demo-Try_It_Now-FF6B6B?style=for-the-badge" />
+  </a>
+  <a href="https://huggingface.co/spaces/aryan1211/pii-sanitizer">
+    <img src="https://img.shields.io/badge/🤗_Hugging_Face-Spaces-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black" />
+  </a>
+</p>
+
 ---
 
 ## ✨ Key Features
