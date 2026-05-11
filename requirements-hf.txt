@@ -1,0 +1,41 @@
+# ── Core Framework ────────────────────────────────────────────
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic[email]
+pydantic-settings
+python-multipart
+
+# ── Authentication ────────────────────────────────────────────
+python-jose[cryptography]
+passlib[bcrypt]
+pyjwt
+
+# ── Encryption ────────────────────────────────────────────────
+cryptography
+
+# ── File Parsers ──────────────────────────────────────────────
+python-docx
+PyMuPDF
+sqlparse
+openpyxl
+python-pptx
+pdf2image
+
+# ── PII Detection ────────────────────────────────────────────
+spacy
+presidio-analyzer
+presidio-anonymizer
+
+# ── Deep Learning (CPU-only to save ~1.5GB) ──────────────────
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+transformers
+sentencepiece
+protobuf
+
+# ── OCR ───────────────────────────────────────────────────────
+paddlepaddle
+paddleocr>=2.7
+PyYAML
+opencv-python-headless

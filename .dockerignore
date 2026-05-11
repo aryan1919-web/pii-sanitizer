@@ -1,0 +1,36 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*.egg-info
+venv/
+.venv/
+env/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# App data (don't ship local uploads)
+uploads/
+sanitized/
+ocr_outputs/
+models/
+*.db
+
+# Docs
+HOSTING_PLAN.md
+README_OCR.md
+prompt.xml
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
